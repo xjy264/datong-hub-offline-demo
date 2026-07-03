@@ -7,6 +7,7 @@ import cn.datong.map.station.StationDtos.ProfileRequest;
 import cn.datong.map.station.StationDtos.RenameFolderRequest;
 import cn.datong.map.station.StationDtos.StationImageView;
 import cn.datong.map.station.StationDtos.StationView;
+import cn.datong.map.station.StationDtos.WorkshopView;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -30,14 +31,21 @@ import java.util.Map;
 @RequestMapping("/api")
 public class StationController {
     private final StationService service;
+    private final WorkshopService workshops;
 
-    public StationController(StationService service) {
+    public StationController(StationService service, WorkshopService workshops) {
         this.service = service;
+        this.workshops = workshops;
     }
 
     @GetMapping("/map")
     public ApiResponse<List<StationView>> map() {
         return ApiResponse.success(service.listStations());
+    }
+
+    @GetMapping("/workshops")
+    public ApiResponse<List<WorkshopView>> workshops() {
+        return ApiResponse.success(workshops.listWorkshops());
     }
 
     @PutMapping("/stations/{stationId}/profile")

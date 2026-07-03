@@ -1,0 +1,51 @@
+package cn.datong.map.station;
+
+import cn.datong.map.common.BusinessException;
+import cn.datong.map.station.StationDtos.WorkshopView;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class WorkshopService {
+    private final JdbcTemplate jdbcTemplate;
+
+    public WorkshopService(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    public List<WorkshopView> listWorkshops() {
+        return jdbcTemplate.query("""
+                SELECT id, code, name, color, sort_order
+                FROM map_workshop
+                ORDER BY sort_order, id
+                """, (rs, rowNum) -> new WorkshopView(
+                rs.getLong("id"), rs.getString("code"), rs.getString("name"), rs.getString("color"), rs.getInt("sort_order")));
+    }
+
+    public Long publicId(String storedValue) {
+        String value = trimToNull(storedValue);
+        if (value == null) return null;
+        return listWorkshops().stream()
+                .filter(workshop -> workshop.code().equals(value) || String.valueOf(workshop.id()).equals(value))
+                .map(WorkshopView::id)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public String storageCode(Long publicId) {
+        if (publicId == null) return null;
+        return listWorkshops().stream()
+                .filter(workshop -> workshop.id().equals(publicId))
+                .map(WorkshopView::code)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("车间不存在"));
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}

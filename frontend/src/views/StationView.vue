@@ -3,7 +3,7 @@
     <div class="page-head">
       <div class="crumbs">
         <el-button text @click="router.push('/map')">地图</el-button>
-        <el-button text @click="router.push(`/workshops/${form.workshopId}`)">{{ workshopName(form.workshopId) }}</el-button>
+        <el-button text @click="goWorkshop">{{ workshopName(form.workshopId) }}</el-button>
         <span class="crumb current">{{ station.name }}</span>
       </div>
       <div class="head-main">
@@ -14,7 +14,7 @@
         </div>
         <div class="button-row">
           <el-button @click="copyStationInfo">复制信息</el-button>
-          <el-button @click="router.push(`/workshops/${form.workshopId}`)">返回车间</el-button>
+          <el-button @click="goWorkshop">返回车间</el-button>
         </div>
       </div>
     </div>
@@ -27,7 +27,7 @@
           </el-form-item>
           <el-form-item label="车间">
             <el-select v-model="form.workshopId" style="width: 100%" @change="saveProfile">
-              <el-option v-for="workshop in WORKSHOPS" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
+              <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
             </el-select>
           </el-form-item>
           <div class="form-grid compact">
@@ -88,17 +88,18 @@
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { WORKSHOPS, workshopName } from '../constants/workshops'
 import { useMapStore } from '../stores/map'
 import type { StationFolder } from '../types'
+import { workshopName as resolveWorkshopName } from '../utils/workshopRoute'
 
 const route = useRoute()
 const router = useRouter()
 const map = useMapStore()
 const imageInput = ref<HTMLInputElement | null>(null)
 const selectedFolderId = ref('')
-const form = reactive({ name: '', notes: '', workshopId: '' })
+const form = reactive<{ name: string; notes: string; workshopId: number | null }>({ name: '', notes: '', workshopId: null })
 const station = computed(() => map.stationById(String(route.params.id)))
+const workshops = computed(() => map.workshops)
 
 onMounted(async () => {
   await map.load()
@@ -143,6 +144,14 @@ async function saveProfile() {
   if (!station.value) return
   await map.updateProfile(station.value.id, { name: form.name, notes: form.notes, workshopId: form.workshopId })
   ElMessage.success('已保存')
+}
+
+function workshopName(id: number | string | null | undefined) {
+  return resolveWorkshopName(workshops.value, id)
+}
+
+function goWorkshop() {
+  if (form.workshopId != null) router.push(`/workshops/${form.workshopId}`)
 }
 
 async function addRootFolder() {

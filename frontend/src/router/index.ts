@@ -17,6 +17,7 @@ const router = createRouter({
       children: [
         { path: 'map', component: MapView },
         { path: 'workshops/:id', component: WorkshopView },
+        { path: 'stations/:name/:id', component: StationView },
         { path: 'stations/:id', component: StationView }
       ]
     }

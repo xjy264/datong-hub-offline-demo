@@ -34,11 +34,13 @@ public class StationService {
     private final JdbcTemplate jdbcTemplate;
     private final ImageStorage storage;
     private final ObjectMapper objectMapper;
+    private final WorkshopService workshops;
 
-    public StationService(JdbcTemplate jdbcTemplate, ImageStorage storage, ObjectMapper objectMapper) {
+    public StationService(JdbcTemplate jdbcTemplate, ImageStorage storage, ObjectMapper objectMapper, WorkshopService workshops) {
         this.jdbcTemplate = jdbcTemplate;
         this.storage = storage;
         this.objectMapper = objectMapper;
+        this.workshops = workshops;
     }
 
     public List<StationView> listStations() {
@@ -46,7 +48,7 @@ public class StationService {
         jdbcTemplate.query("""
                 SELECT s.id, COALESCE(NULLIF(p.name, ''), s.name) AS display_name, s.name, s.auto_name, s.type,
                        s.color, s.line_name, s.mileage, s.position_x, s.position_y, s.size,
-                       COALESCE(p.workshop_id, s.default_workshop_id) AS workshop_id, COALESCE(p.notes, '') AS notes
+                       COALESCE(NULLIF(p.workshop_id, ''), s.default_workshop_id) AS workshop_id, COALESCE(p.notes, '') AS notes
                 FROM map_station s
                 LEFT JOIN station_profile p ON p.station_id = s.id
                 ORDER BY s.position_y, s.position_x
@@ -55,7 +57,7 @@ public class StationService {
                     rs.getString("id"), rs.getString("display_name"), rs.getString("auto_name"), rs.getString("type"),
                     rs.getString("color"), rs.getString("line_name"), rs.getString("mileage"),
                     rs.getDouble("position_x"), rs.getDouble("position_y"), rs.getDouble("size"),
-                    rs.getString("workshop_id"), rs.getString("notes")));
+                    workshops.publicId(rs.getString("workshop_id")), rs.getString("notes")));
         });
         Map<String, FolderMutable> folders = new HashMap<>();
         jdbcTemplate.query("""
@@ -87,11 +89,12 @@ public class StationService {
     @Transactional
     public void updateProfile(String stationId, ProfileRequest request) {
         requireStation(stationId);
+        String workshopCode = workshops.storageCode(request.workshopId());
         jdbcTemplate.update("""
                 INSERT INTO station_profile (station_id, name, notes, workshop_id, updated_at)
                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON DUPLICATE KEY UPDATE name = VALUES(name), notes = VALUES(notes), workshop_id = VALUES(workshop_id), updated_at = CURRENT_TIMESTAMP
-                """, stationId, trim(request.name()), trim(request.notes()), blankToNull(request.workshopId()));
+                """, stationId, trim(request.name()), trim(request.notes()), workshopCode);
     }
 
     @Transactional
@@ -168,7 +171,7 @@ public class StationService {
 
     private void importStation(String stationId, JsonNode node) {
         if (!stationExists(stationId)) return;
-        updateProfile(stationId, new ProfileRequest(text(node, "name"), text(node, "notes"), text(node, "workshop")));
+        updateProfile(stationId, new ProfileRequest(text(node, "name"), text(node, "notes"), workshops.publicId(text(node, "workshop"))));
         JsonNode folders = node.path("folders");
         if (folders.isArray()) {
             for (JsonNode folder : folders) importFolder(stationId, null, folder, 0);
@@ -298,10 +301,10 @@ public class StationService {
     }
 
     private record StationMutable(String id, String name, String autoName, String type, String color, String line,
-                                  String mileage, double x, double y, double size, String workshopId, String notes,
+                                  String mileage, double x, double y, double size, Long workshopId, String notes,
                                   List<FolderMutable> folders) {
         StationMutable(String id, String name, String autoName, String type, String color, String line, String mileage,
-                       double x, double y, double size, String workshopId, String notes) {
+                       double x, double y, double size, Long workshopId, String notes) {
             this(id, name, autoName, type, color, line, mileage, x, y, size, workshopId, notes, new ArrayList<>());
         }
 
