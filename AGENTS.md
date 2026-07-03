@@ -56,5 +56,6 @@ curl --noproxy '*' -I http://82.156.194.174/
 
 ## 约束
 
+- 本地功能分支或独立 worktree 做完后，必须先合并回本地 `main`，再启动/验证给用户测试。
 - 不在服务器手改业务代码；所有改动先进 GitHub `main`。
 - 不提交 `deploy/.env`，只提交 `deploy/.env.example`。
