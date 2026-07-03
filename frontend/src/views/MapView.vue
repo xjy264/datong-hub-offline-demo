@@ -90,7 +90,7 @@
               v-for="marker in currentMap.markers"
               :key="marker.id"
               class="hotspot marker-hotspot"
-              :class="{ hidden: !visibleMarkerIds.has(marker.id), selected: selectedMarkerId === marker.id }"
+              :class="{ hidden: !visibleMarkerIds.has(marker.id), selected: selectedMarkerId === marker.id, active: !editMode && selectedSidebarStationId === marker.station.id }"
               :style="markerStyle(marker)"
               :title="marker.station.name"
               @click.stop="clickMarker(marker)"
@@ -107,6 +107,29 @@
             />
           </div>
         </div>
+
+        <aside class="station-sidebar">
+          <template v-if="selectedSidebarStation">
+            <div class="eyebrow">当前车站</div>
+            <h3>{{ selectedSidebarStation.name }}</h3>
+            <dl class="sidebar-info">
+              <div>
+                <dt>车间</dt>
+                <dd>{{ workshopName(selectedSidebarStation.workshopId) }}</dd>
+              </div>
+              <div>
+                <dt>图片数量</dt>
+                <dd>{{ countImages(selectedSidebarStation.folders) }} 张</dd>
+              </div>
+              <div>
+                <dt>备注</dt>
+                <dd>{{ selectedSidebarStation.notes || '暂无备注' }}</dd>
+              </div>
+            </dl>
+            <el-button type="primary" style="width: 100%" @click="router.push(stationDetailPath(selectedSidebarStation))">进入详情页面</el-button>
+          </template>
+          <div v-else class="empty">点击地图上的车站查看信息</div>
+        </aside>
       </div>
     </section>
 
@@ -129,6 +152,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useMapStore } from '../stores/map'
 import type { MapMarker, Station, StationFolder, StationImage } from '../types'
+import { nextSidebarStationId } from '../utils/mapMarkerClick'
 import { createMarkerDraft } from '../utils/markerDraft'
 import { DEFAULT_MARKER_SIZE, markerCssVars } from '../utils/markerStyle'
 import { stationDetailPath } from '../utils/stationRoute'
@@ -149,6 +173,7 @@ const editMode = ref(false)
 const selectedMarkerId = ref('')
 const selectedMarkerStationId = ref('')
 const selectedMarkerSize = ref(DEFAULT_MARKER_SIZE)
+const selectedSidebarStationId = ref('')
 const scale = ref(1)
 const panX = ref(0)
 const panY = ref(0)
@@ -162,6 +187,7 @@ const hoverY = ref(0)
 onMounted(async () => {
   await map.load()
   selectedMapId.value = map.currentMap?.id || ''
+  ensureSidebarSelection()
   await nextTick()
   fitToViewport()
 })
@@ -169,10 +195,14 @@ onMounted(async () => {
 watch(() => map.currentMap?.id, async (id) => {
   if (id) selectedMapId.value = id
   selectedMarkerId.value = ''
+  selectedSidebarStationId.value = ''
   draftMarker.value = null
+  ensureSidebarSelection()
   await nextTick()
   fitToViewport()
 })
+
+watch(() => map.currentMap?.markers.map((marker) => `${marker.id}:${marker.station.id}`).join('|') || '', () => ensureSidebarSelection())
 
 const currentMap = computed(() => map.currentMap)
 const workshops = computed(() => map.workshops)
@@ -192,6 +222,7 @@ const canvasStyle = computed(() => ({ transform: `translate(${panX.value}px, ${p
 const baseMapStyle = computed(() => ({ width: `${currentMap.value?.width || 1191}px`, height: `${currentMap.value?.height || 842}px` }))
 const hoverStyle = computed(() => ({ left: `${hoverX.value}px`, top: `${hoverY.value}px` }))
 const selectedMarker = computed(() => currentMap.value?.markers.find((marker) => marker.id === selectedMarkerId.value) || null)
+const selectedSidebarStation = computed(() => map.stations.find((station) => station.id === selectedSidebarStationId.value) || null)
 
 function workshopName(id: number | string | null | undefined) {
   return resolveWorkshopName(workshops.value, id)
@@ -227,6 +258,12 @@ function colorLabel(color: string) {
 
 function markerStyle(marker: { x: number; y: number; size?: number }) {
   return markerCssVars(marker)
+}
+
+function ensureSidebarSelection() {
+  const markerStationIds = new Set((currentMap.value?.markers || []).map((marker) => marker.station.id))
+  if (selectedSidebarStationId.value && markerStationIds.has(selectedSidebarStationId.value)) return
+  selectedSidebarStationId.value = currentMap.value?.markers[0]?.station.id || ''
 }
 
 async function changeMap(value: string) {
@@ -273,6 +310,7 @@ function dropNewMarker(event: DragEvent) {
 }
 
 function clickMarker(marker: MapMarker) {
+  const sidebarStationId = nextSidebarStationId(editMode.value, selectedSidebarStationId.value, marker.station.id)
   if (editMode.value) {
     draftMarker.value = null
     selectedMarkerId.value = marker.id
@@ -280,7 +318,7 @@ function clickMarker(marker: MapMarker) {
     selectedMarkerSize.value = marker.size || DEFAULT_MARKER_SIZE
     return
   }
-  router.push(stationDetailPath(marker.station))
+  selectedSidebarStationId.value = sidebarStationId
 }
 
 function startMarkerDrag(marker: MapMarker, event: PointerEvent) {
