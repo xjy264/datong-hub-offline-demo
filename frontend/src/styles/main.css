@@ -96,7 +96,7 @@ button { font: inherit; cursor: pointer; }
 .palette-list { min-height: 0; overflow: auto; display: grid; gap: 8px; }
 .palette-item { border: 1px solid var(--line); border-radius: 8px; background: white; padding: 8px; cursor: grab; display: grid; gap: 2px; }
 .palette-item span { color: var(--muted); font-size: 12px; }
-.new-marker-drag { border: 1px dashed #111827; border-radius: 10px; background: white; padding: 12px; cursor: grab; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; user-select: none; }
+.new-marker-drag { width: 100%; border: 1px dashed #111827; border-radius: 10px; background: white; padding: 12px; cursor: grab; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; user-select: none; text-align: left; color: inherit; }
 .new-marker-drag:active { cursor: grabbing; }
 .new-marker-dot { width: 10px; height: 10px; border-radius: 50%; background: #111; box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(17,24,39,.35); }
 .new-marker-drag small { grid-column: 2; color: var(--muted); }

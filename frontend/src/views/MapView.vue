@@ -43,6 +43,7 @@
           <el-button @click="fitToViewport">适应整图</el-button>
           <el-button @click="openOriginalPdf">查看原始 PDF</el-button>
           <template v-if="auth.user?.isSuperAdmin">
+            <el-button type="primary" @click="startAddMarkerMode">新增车站按钮</el-button>
             <el-button @click="pdfInput?.click()">上传 PDF</el-button>
             <el-button :type="editMode ? 'primary' : 'default'" @click="toggleEdit">{{ editMode ? '完成编辑' : '编辑布局' }}</el-button>
             <input ref="pdfInput" class="file-input" type="file" accept="application/pdf,.pdf" @change="uploadPdf" />
@@ -54,11 +55,11 @@
         <aside v-if="editMode" class="marker-palette">
           <h3 class="panel-title">新增按钮</h3>
           <p class="palette-hint">把这个黑色按钮拖到 PDF 上，再在下方选择它绑定的车站。</p>
-          <div class="new-marker-drag" draggable="true" @dragstart="startNewMarkerDrag">
+          <button type="button" class="new-marker-drag" draggable="true" @dragstart="startNewMarkerDrag">
             <span class="new-marker-dot"></span>
-            <strong>新增站点按钮</strong>
+            <strong>新增车站按钮</strong>
             <small>拖到地图任意位置</small>
-          </div>
+          </button>
           <div v-if="selectedMarker || draftMarker" class="marker-form">
             <h3 class="panel-title">{{ draftMarker ? '新增按钮配置' : '选中按钮配置' }}</h3>
             <el-select v-model="selectedMarkerStationId" filterable placeholder="请选择车站" style="width: 100%">
@@ -234,6 +235,12 @@ async function changeMap(value: string) {
 
 function toggleEdit() {
   editMode.value = !editMode.value
+  selectedMarkerId.value = ''
+  draftMarker.value = null
+}
+
+function startAddMarkerMode() {
+  editMode.value = true
   selectedMarkerId.value = ''
   draftMarker.value = null
 }
