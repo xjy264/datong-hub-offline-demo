@@ -97,13 +97,6 @@ export const useMapStore = defineStore('map', {
       await apiDelete(`/images/${imageId}`)
       if (this.currentMap) await this.loadMap(this.currentMap.id)
       else await this.load(true)
-    },
-    async importJson(file: File) {
-      const form = new FormData()
-      form.append('file', file)
-      await apiPost('/import', form, { headers: { 'Content-Type': 'multipart/form-data' } })
-      if (this.currentMap) await this.loadMap(this.currentMap.id)
-      else await this.load(true)
     }
   }
 })
