@@ -49,6 +49,19 @@ export const useMapStore = defineStore('map', {
       this.stations = created.stations
       this.workshops = created.workshops
     },
+    async renameMap(mapId: string, name: string) {
+      const renamed = await apiPut<MapSummary>(`/maps/${mapId}`, { name })
+      this.maps = this.maps.map((item) => (item.id === mapId ? renamed : item))
+      if (this.currentMap?.id === mapId) this.currentMap = { ...this.currentMap, name: renamed.name }
+    },
+    async deleteMap(mapId: string) {
+      await apiDelete(`/maps/${mapId}`)
+      this.maps = await apiGet<MapSummary[]>('/maps')
+      if (this.currentMap?.id === mapId) {
+        if (this.maps.length) await this.loadMap(this.maps[0].id)
+        else this.currentMap = null
+      }
+    },
     async createMarker(mapId: string, body: { stationId: string; x: number; y: number; size: number }) {
       await apiPost<MapMarker>(`/maps/${mapId}/markers`, body)
       await this.loadMap(mapId)

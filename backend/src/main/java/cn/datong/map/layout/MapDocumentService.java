@@ -2,6 +2,7 @@ package cn.datong.map.layout;
 
 import cn.datong.map.common.BusinessException;
 import cn.datong.map.layout.MapDtos.MapDetail;
+import cn.datong.map.layout.MapDtos.MapNameRequest;
 import cn.datong.map.layout.MapDtos.MapSummary;
 import cn.datong.map.layout.MapDtos.MarkerRequest;
 import cn.datong.map.layout.MapDtos.MarkerView;
@@ -92,6 +93,28 @@ public class MapDocumentService {
     }
 
     @Transactional
+    public MapSummary renameMap(CurrentUser user, String mapId, MapNameRequest request) {
+        requireAdmin(user);
+        requireMap(mapId);
+        jdbcTemplate.update("UPDATE map_document SET name = ? WHERE id = ?", defaultName(request == null ? null : request.name()), mapId);
+        return mapSummary(mapId);
+    }
+
+    @Transactional
+    public void deleteMap(CurrentUser user, String mapId) {
+        requireAdmin(user);
+        MapRow map = requireMap(mapId);
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM map_document", Integer.class);
+        if (count == null || count <= 1) {
+            throw new BusinessException("至少保留一张地图");
+        }
+        jdbcTemplate.update("DELETE FROM map_marker WHERE map_id = ?", mapId);
+        jdbcTemplate.update("DELETE FROM map_document WHERE id = ?", mapId);
+        removeObject(map.pdfBucket(), map.pdfObjectName());
+        removeObject(map.backgroundBucket(), map.backgroundObjectName());
+    }
+
+    @Transactional
     public MarkerView createMarker(CurrentUser user, String mapId, MarkerRequest request) {
         requireAdmin(user);
         requireMap(mapId);
@@ -150,6 +173,25 @@ public class MapDocumentService {
         return markers.getFirst();
     }
 
+    private MapSummary mapSummary(String mapId) {
+        List<MapSummary> maps = jdbcTemplate.query("""
+                SELECT id, name, background_url, width, height, created_at
+                FROM map_document WHERE id = ?
+                """, (rs, rowNum) -> new MapSummary(
+                rs.getString("id"), rs.getString("name"), rs.getString("background_url"), rs.getInt("width"),
+                rs.getInt("height"), rs.getObject("created_at", LocalDateTime.class)), mapId);
+        if (maps.isEmpty()) {
+            throw new BusinessException("地图不存在");
+        }
+        return maps.getFirst();
+    }
+
+    private void removeObject(String bucket, String objectName) {
+        if (bucket != null && !bucket.isBlank() && objectName != null && !objectName.isBlank()) {
+            storage.remove(bucket, objectName);
+        }
+    }
+
     private void requireAdmin(CurrentUser user) {
         if (user == null || !Boolean.TRUE.equals(user.superAdmin())) {
             throw new AccessDeniedException("当前账号没有地图布局编辑权限");
@@ -158,9 +200,10 @@ public class MapDocumentService {
 
     private MapRow requireMap(String mapId) {
         List<MapRow> maps = jdbcTemplate.query("""
-                SELECT id, name, background_bucket, background_object_name, background_url, width, height
+                SELECT id, name, pdf_bucket, pdf_object_name, background_bucket, background_object_name, background_url, width, height
                 FROM map_document WHERE id = ?
-                """, (rs, rowNum) -> new MapRow(rs.getString("id"), rs.getString("name"), rs.getString("background_bucket"),
+                """, (rs, rowNum) -> new MapRow(rs.getString("id"), rs.getString("name"),
+                rs.getString("pdf_bucket"), rs.getString("pdf_object_name"), rs.getString("background_bucket"),
                 rs.getString("background_object_name"), rs.getString("background_url"), rs.getInt("width"), rs.getInt("height")), mapId);
         if (maps.isEmpty()) {
             throw new BusinessException("地图不存在");
@@ -226,8 +269,8 @@ public class MapDocumentService {
         }
     }
 
-    private record MapRow(String id, String name, String backgroundBucket, String backgroundObjectName,
-                          String backgroundUrl, int width, int height) {
+    private record MapRow(String id, String name, String pdfBucket, String pdfObjectName,
+                          String backgroundBucket, String backgroundObjectName, String backgroundUrl, int width, int height) {
     }
 
     private record StationMutable(String id, String name, String autoName, String type, String color, String line,

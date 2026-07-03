@@ -17,6 +17,9 @@ public final class MapDtos {
                             List<MarkerView> markers, List<StationView> stations, List<WorkshopView> workshops) {
     }
 
+    public record MapNameRequest(String name) {
+    }
+
     public record MarkerView(String id, String mapId, double x, double y, double size, StationView station) {
     }
 

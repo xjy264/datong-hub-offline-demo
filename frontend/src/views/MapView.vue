@@ -26,7 +26,20 @@
           <el-select v-model="selectedMapId" class="select-field" placeholder="选择地图" @change="changeMap">
             <el-option v-for="item in map.maps" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
-          <el-input v-model="query" class="search-field" placeholder="搜索站名、里程、车间" clearable />
+          <el-autocomplete
+            v-model="query"
+            class="search-field"
+            placeholder="搜索站名、里程、车间"
+            clearable
+            :fetch-suggestions="fetchMarkerSuggestions"
+            :trigger-on-focus="false"
+            @select="selectSearchSuggestion"
+          >
+            <template #default="{ item }">
+              <div class="search-option-name">{{ item.value }}</div>
+              <span class="search-option-detail">{{ item.detail }}</span>
+            </template>
+          </el-autocomplete>
           <el-select v-model="workshopFilter" class="select-field" aria-label="车间筛选">
             <el-option label="全部车间" value="all" />
             <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
@@ -44,9 +57,7 @@
           <el-button @click="openOriginalPdf">查看原始 PDF</el-button>
           <template v-if="auth.user?.isSuperAdmin">
             <el-button type="primary" @click="startAddMarkerMode">新增车站按钮</el-button>
-            <el-button @click="pdfInput?.click()">上传 PDF</el-button>
             <el-button :type="editMode ? 'primary' : 'default'" @click="toggleEdit">{{ editMode ? '完成编辑' : '编辑布局' }}</el-button>
-            <input ref="pdfInput" class="file-input" type="file" accept="application/pdf,.pdf" @change="uploadPdf" />
           </template>
         </div>
       </div>
@@ -146,25 +157,27 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useMapStore } from '../stores/map'
 import type { MapMarker, Station, StationFolder, StationImage } from '../types'
 import { nextSidebarStationId } from '../utils/mapMarkerClick'
+import { focusMarkerTransform, markerSuggestions } from '../utils/mapSearch'
 import { createMarkerDraft } from '../utils/markerDraft'
 import { DEFAULT_MARKER_SIZE, markerCssVars } from '../utils/markerStyle'
 import { stationDetailPath } from '../utils/stationRoute'
 import { workshopName as resolveWorkshopName, workshopPath } from '../utils/workshopRoute'
 
 type DraftMarker = { x: number; y: number; size: number }
+type SearchSuggestion = ReturnType<typeof markerSuggestions>[number]
 
 const map = useMapStore()
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const viewport = ref<HTMLElement | null>(null)
-const pdfInput = ref<HTMLInputElement | null>(null)
 const selectedMapId = ref('')
 const query = ref('')
 const workshopFilter = ref<number | 'all'>('all')
@@ -186,6 +199,8 @@ const hoverY = ref(0)
 
 onMounted(async () => {
   await map.load()
+  const routeMapId = typeof route.query.mapId === 'string' ? route.query.mapId : ''
+  if (routeMapId && routeMapId !== map.currentMap?.id) await map.loadMap(routeMapId)
   selectedMapId.value = map.currentMap?.id || ''
   ensureSidebarSelection()
   await nextTick()
@@ -228,6 +243,24 @@ function workshopName(id: number | string | null | undefined) {
   return resolveWorkshopName(workshops.value, id)
 }
 
+function fetchMarkerSuggestions(text: string, cb: (items: SearchSuggestion[]) => void) {
+  cb(markerSuggestions(currentMap.value?.markers || [], text, workshopName))
+}
+
+function selectSearchSuggestion(item: SearchSuggestion) {
+  const marker = currentMap.value?.markers.find((candidate) => candidate.id === item.markerId)
+  const rect = viewport.value?.getBoundingClientRect()
+  if (!marker || !rect) return
+  workshopFilter.value = 'all'
+  colorFilter.value = 'all'
+  selectedMarkerId.value = marker.id
+  selectedSidebarStationId.value = marker.station.id
+  const transform = focusMarkerTransform(marker, currentMap.value?.markers || [], { width: rect.width, height: rect.height })
+  scale.value = transform.scale
+  panX.value = transform.panX
+  panY.value = transform.panY
+}
+
 function workshopStats(id: number) {
   const stations = map.stations.filter((station) => station.workshopId === id)
   const stationIds = new Set(stations.map((station) => station.id))
@@ -268,6 +301,7 @@ function ensureSidebarSelection() {
 
 async function changeMap(value: string) {
   await map.loadMap(value)
+  router.replace({ path: '/map', query: { mapId: value } })
 }
 
 function toggleEdit() {
@@ -280,17 +314,6 @@ function startAddMarkerMode() {
   editMode.value = true
   selectedMarkerId.value = ''
   draftMarker.value = null
-}
-
-async function uploadPdf(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  const name = await ElMessageBox.prompt('请输入地图名称', '上传背景 PDF', { inputValue: file.name.replace(/\.pdf$/i, '') }).then((result) => result.value).catch(() => '')
-  if (!name) return
-  await map.createMap(name, file)
-  input.value = ''
-  ElMessage.success('已创建新地图')
 }
 
 function startNewMarkerDrag(event: DragEvent) {

@@ -75,15 +75,52 @@ class MapDocumentServiceTest {
     }
 
     @Test
+    void adminCanRenameMap() {
+        MapDtos.MapSummary renamed = service.renameMap(new CurrentUser(1L, true), "default-map", new MapDtos.MapNameRequest("  新地图名  "));
+
+        assertThat(renamed.name()).isEqualTo("新地图名");
+        assertThat(service.detail("default-map").name()).isEqualTo("新地图名");
+    }
+
+    @Test
+    void deleteMapRemovesMarkersAndUploadedObjects() {
+        FakeStorage storage = new FakeStorage();
+        service = new MapDocumentService(jdbc, storage, new PdfFirstPageRenderer(), new WorkshopService(jdbc));
+        jdbc.update("INSERT INTO map_document VALUES ('uploaded-map', '上传地图', 'test', 'maps/uploaded/source.pdf', 'test', 'maps/uploaded/background.png', '/api/maps/uploaded-map/background', 100, 100, 1, CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO map_marker VALUES ('marker-1', 'uploaded-map', 'xinzhou', 10, 20, 8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+
+        service.deleteMap(new CurrentUser(1L, true), "uploaded-map");
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM map_document WHERE id = 'uploaded-map'", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM map_marker WHERE map_id = 'uploaded-map'", Integer.class)).isZero();
+        assertThat(storage.removed).containsExactly("test/maps/uploaded/source.pdf", "test/maps/uploaded/background.png");
+    }
+
+    @Test
+    void cannotDeleteLastMap() {
+        assertThatThrownBy(() -> service.deleteMap(new CurrentUser(1L, true), "default-map"))
+                .isInstanceOf(cn.datong.map.common.BusinessException.class)
+                .hasMessage("至少保留一张地图");
+    }
+
+    @Test
     void nonAdminCannotMutateLayout() {
         CurrentUser user = new CurrentUser(2L, false);
 
         assertThatThrownBy(() -> service.createMarker(user, "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7)))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessage("当前账号没有地图布局编辑权限");
+        assertThatThrownBy(() -> service.renameMap(user, "default-map", new MapDtos.MapNameRequest("无权限")))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("当前账号没有地图布局编辑权限");
+        assertThatThrownBy(() -> service.deleteMap(user, "default-map"))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessage("当前账号没有地图布局编辑权限");
     }
 
     private static class FakeStorage implements ImageStorage {
+        private final java.util.List<String> removed = new java.util.ArrayList<>();
+
         @Override
         public StoredObject upload(byte[] bytes, String contentType, String objectName) {
             return new StoredObject("test", objectName, bytes.length, contentType);
@@ -96,6 +133,7 @@ class MapDocumentServiceTest {
 
         @Override
         public void remove(String bucket, String objectName) {
+            removed.add(bucket + "/" + objectName);
         }
     }
 }

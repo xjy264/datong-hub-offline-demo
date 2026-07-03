@@ -1,7 +1,7 @@
 <template>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand" @click="$router.push('/map')">
+      <div class="brand" @click="$router.push('/maps')">
         <h1>大同房建公寓段管辖示意图</h1>
         <span class="status">{{ auth.user?.realName || '已登录' }} · 数据保存在服务器</span>
       </div>

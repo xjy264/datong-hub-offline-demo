@@ -2,6 +2,7 @@ package cn.datong.map.layout;
 
 import cn.datong.map.common.ApiResponse;
 import cn.datong.map.layout.MapDtos.MapDetail;
+import cn.datong.map.layout.MapDtos.MapNameRequest;
 import cn.datong.map.layout.MapDtos.MapSummary;
 import cn.datong.map.layout.MapDtos.MarkerRequest;
 import cn.datong.map.layout.MapDtos.MarkerView;
@@ -52,6 +53,17 @@ public class MapDocumentController {
     @PostMapping
     public ApiResponse<MapDetail> create(@RequestParam("name") String name, @RequestParam("file") MultipartFile file) throws Exception {
         return ApiResponse.success(service.createMap(SecurityUtils.currentUser(), name, file));
+    }
+
+    @PutMapping("/{mapId}")
+    public ApiResponse<MapSummary> rename(@PathVariable String mapId, @RequestBody MapNameRequest request) {
+        return ApiResponse.success(service.renameMap(SecurityUtils.currentUser(), mapId, request));
+    }
+
+    @DeleteMapping("/{mapId}")
+    public ApiResponse<Void> delete(@PathVariable String mapId) {
+        service.deleteMap(SecurityUtils.currentUser(), mapId);
+        return ApiResponse.success();
     }
 
     @PostMapping("/{mapId}/markers")

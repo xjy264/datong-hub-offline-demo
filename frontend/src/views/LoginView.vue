@@ -65,7 +65,7 @@ async function login() {
     if (rememberPhone.value) localStorage.setItem(REMEMBER_PHONE_KEY, form.phone.trim())
     else localStorage.removeItem(REMEMBER_PHONE_KEY)
     auth.setSession(result.user, result.permissions)
-    router.push('/map')
+    router.push('/maps')
   } catch {
     captchaRef.value?.reset()
   } finally {
