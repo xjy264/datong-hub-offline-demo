@@ -3,7 +3,8 @@
     <div class="page-head">
       <div class="crumbs">
         <el-button text @click="router.push('/map')">地图</el-button>
-        <span class="crumb current">{{ workshop?.name || '车间' }}</span>
+        <button v-if="workshop" class="crumb current crumb-edit" title="点击修改车间名称" @click="startRenameWorkshop">{{ workshop.name }}</button>
+        <span v-else class="crumb current">车间</span>
       </div>
       <div class="head-main">
         <div>
