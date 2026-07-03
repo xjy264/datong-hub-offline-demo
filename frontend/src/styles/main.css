@@ -61,7 +61,7 @@ button { font: inherit; cursor: pointer; }
 .viewport { min-width: 0; min-height: 420px; height: 100%; overflow: hidden; border-radius: 10px; background: #dce4ea; position: relative; touch-action: none; }
 .map-canvas { width: 1191px; height: 842px; transform-origin: 0 0; position: absolute; left: 0; top: 0; }
 .base-map { width: 1191px; height: 842px; display: block; user-select: none; pointer-events: none; }
-.hotspot { position: absolute; left: calc(var(--x) - var(--size)); top: calc(var(--y) - var(--size)); width: calc(var(--size) * 2); height: calc(var(--size) * 2); border-radius: 999px; border: 0; background: var(--marker-color, #ff0000); padding: 0; }
+.hotspot { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); transform: translate(-50%, -50%); border-radius: 999px; border: 0; background: var(--marker-color, #ff0000); padding: 0; }
 .hotspot:hover { background: var(--marker-color, #ff0000); outline: 2px solid rgba(17,24,39,.35); outline-offset: 2px; }
 .hotspot.hidden { opacity: .08; pointer-events: none; }
 .hover-card { position: fixed; width: 240px; background: white; border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 10px; padding: 10px; z-index: 20; pointer-events: none; }
