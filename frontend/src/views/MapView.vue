@@ -39,6 +39,7 @@
           <el-button @click="zoomAt(1 / 1.18)">缩小</el-button>
           <el-button @click="zoomAt(1.18)">放大</el-button>
           <el-button @click="fitToViewport">适应整图</el-button>
+          <el-button @click="openOriginalPdf">查看原始 PDF</el-button>
         </div>
       </div>
       <div ref="viewport" class="viewport" @wheel.prevent="onWheel" @pointerdown="startDrag" @pointermove="moveDrag" @pointerup="stopDrag" @pointercancel="stopDrag">
@@ -156,6 +157,10 @@ function fitToViewport() {
   scale.value = Math.min(2.8, Math.max(0.25, scale.value))
   panX.value = (rect.width - MAP_SIZE.width * scale.value) / 2
   panY.value = (rect.height - MAP_SIZE.height * scale.value) / 2
+}
+
+function openOriginalPdf() {
+  window.open('/assets/original-map.pdf', '_blank', 'noopener')
 }
 
 function zoomAt(multiplier: number, event?: WheelEvent) {
