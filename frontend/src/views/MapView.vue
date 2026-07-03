@@ -65,18 +65,24 @@
       <div class="map-editor-layout" :class="{ editing: editMode }">
         <aside v-if="editMode" class="marker-palette">
           <h3 class="panel-title">新增按钮</h3>
-          <p class="palette-hint">把这个黑色按钮拖到 PDF 上，再在下方选择它绑定的车站。</p>
+          <p class="palette-hint">把红/蓝站点按钮拖到 PDF 上，再选择它绑定的车站。</p>
           <button type="button" class="new-marker-drag" draggable="true" @dragstart="startNewMarkerDrag">
-            <span class="new-marker-dot"></span>
+            <span class="new-marker-preview">
+              <span class="new-marker-dot red"></span>
+              <span class="new-marker-dot blue"></span>
+            </span>
             <strong>新增车站按钮</strong>
-            <small>拖到地图任意位置</small>
+            <small>红色车站 / 蓝色已撤站</small>
           </button>
           <div v-if="selectedMarker || draftMarker" class="marker-form">
             <h3 class="panel-title">{{ draftMarker ? '新增按钮配置' : '选中按钮配置' }}</h3>
+            <el-radio-group v-model="selectedMarkerType" class="marker-type-group">
+              <el-radio-button label="red">车站</el-radio-button>
+              <el-radio-button label="blue">已撤站</el-radio-button>
+            </el-radio-group>
             <el-select v-model="selectedMarkerStationId" filterable placeholder="请选择车站" style="width: 100%">
-              <el-option v-for="station in map.stations" :key="station.id" :label="station.name" :value="station.id" />
+              <el-option v-for="station in markerTypeStations" :key="station.id" :label="station.name" :value="station.id" />
             </el-select>
-            <el-input-number v-model="selectedMarkerSize" :min="3" :max="18" :step="0.2" style="width: 100%; margin-top: 8px" />
             <div class="button-row" style="margin-top: 8px">
               <el-button type="primary" :disabled="!selectedMarkerStationId" @click="saveSelectedMarker">{{ draftMarker ? '保存新增按钮' : '保存按钮' }}</el-button>
               <el-button type="danger" plain @click="deleteSelectedMarker">{{ draftMarker ? '取消' : '删除按钮' }}</el-button>
@@ -113,7 +119,7 @@
             <button
               v-if="draftMarker"
               class="hotspot marker-hotspot selected draft-marker"
-              :style="markerStyle({ ...draftMarker, size: selectedMarkerSize })"
+              :style="markerStyle({ ...draftMarker, color: selectedMarkerType })"
               title="新按钮"
             />
           </div>
@@ -185,7 +191,7 @@ const colorFilter = ref('all')
 const editMode = ref(false)
 const selectedMarkerId = ref('')
 const selectedMarkerStationId = ref('')
-const selectedMarkerSize = ref(DEFAULT_MARKER_SIZE)
+const selectedMarkerType = ref<'red' | 'blue'>('red')
 const selectedSidebarStationId = ref('')
 const scale = ref(1)
 const panX = ref(0)
@@ -238,6 +244,12 @@ const baseMapStyle = computed(() => ({ width: `${currentMap.value?.width || 1191
 const hoverStyle = computed(() => ({ left: `${hoverX.value}px`, top: `${hoverY.value}px` }))
 const selectedMarker = computed(() => currentMap.value?.markers.find((marker) => marker.id === selectedMarkerId.value) || null)
 const selectedSidebarStation = computed(() => map.stations.find((station) => station.id === selectedSidebarStationId.value) || null)
+const selectedMarkerStation = computed(() => map.stations.find((station) => station.id === selectedMarkerStationId.value) || null)
+const markerTypeStations = computed(() => map.stations.filter((station) => stationType(station) === selectedMarkerType.value))
+
+watch(selectedMarkerType, () => {
+  if (selectedMarkerStation.value && stationType(selectedMarkerStation.value) !== selectedMarkerType.value) selectedMarkerStationId.value = ''
+})
 
 function workshopName(id: number | string | null | undefined) {
   return resolveWorkshopName(workshops.value, id)
@@ -289,8 +301,21 @@ function colorLabel(color: string) {
   return color === 'blue' ? '已撤站' : '车站'
 }
 
-function markerStyle(marker: { x: number; y: number; size?: number }) {
-  return markerCssVars(marker)
+function stationType(station: Pick<Station, 'color'> | null | undefined): 'red' | 'blue' {
+  return station?.color === 'blue' ? 'blue' : 'red'
+}
+
+function stationMarkerSize(station: Pick<Station, 'size'> | null | undefined) {
+  return station?.size || DEFAULT_MARKER_SIZE
+}
+
+function markerStyle(marker: { x: number; y: number; size?: number; color?: string; station?: Station }) {
+  return markerCssVars({
+    x: marker.x,
+    y: marker.y,
+    size: marker.station ? stationMarkerSize(marker.station) : marker.size || DEFAULT_MARKER_SIZE,
+    color: marker.station ? marker.station.color : marker.color
+  })
 }
 
 function ensureSidebarSelection() {
@@ -329,7 +354,7 @@ function dropNewMarker(event: DragEvent) {
   draftMarker.value = draft.marker
   selectedMarkerId.value = ''
   selectedMarkerStationId.value = draft.stationId
-  selectedMarkerSize.value = draft.size
+  selectedMarkerType.value = 'red'
 }
 
 function clickMarker(marker: MapMarker) {
@@ -338,7 +363,7 @@ function clickMarker(marker: MapMarker) {
     draftMarker.value = null
     selectedMarkerId.value = marker.id
     selectedMarkerStationId.value = marker.station.id
-    selectedMarkerSize.value = marker.size || DEFAULT_MARKER_SIZE
+    selectedMarkerType.value = stationType(marker.station)
     return
   }
   selectedSidebarStationId.value = sidebarStationId
@@ -349,7 +374,7 @@ function startMarkerDrag(marker: MapMarker, event: PointerEvent) {
   draftMarker.value = null
   selectedMarkerId.value = marker.id
   selectedMarkerStationId.value = marker.station.id
-  selectedMarkerSize.value = marker.size || DEFAULT_MARKER_SIZE
+  selectedMarkerType.value = stationType(marker.station)
   markerDrag.value = { id: marker.id, moved: false }
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
 }
@@ -360,12 +385,13 @@ async function saveSelectedMarker() {
     ElMessage.warning('请选择按钮对应的车站')
     return
   }
+  const stationSize = stationMarkerSize(selectedMarkerStation.value)
   if (draftMarker.value) {
     await map.createMarker(currentMap.value.id, {
       stationId: selectedMarkerStationId.value,
       x: draftMarker.value.x,
       y: draftMarker.value.y,
-      size: selectedMarkerSize.value
+      size: stationSize
     })
     draftMarker.value = null
     ElMessage.success('已新增按钮')
@@ -376,7 +402,7 @@ async function saveSelectedMarker() {
     stationId: selectedMarkerStationId.value,
     x: selectedMarker.value.x,
     y: selectedMarker.value.y,
-    size: selectedMarkerSize.value
+    size: stationSize
   })
   ElMessage.success('已保存组件')
 }
@@ -447,7 +473,7 @@ async function stopPointer() {
   if (markerDrag.value && currentMap.value) {
     const marker = currentMap.value.markers.find((item) => item.id === markerDrag.value?.id)
     if (marker && markerDrag.value.moved) {
-      await map.updateMarker(currentMap.value.id, marker.id, { stationId: marker.station.id, x: marker.x, y: marker.y, size: marker.size })
+      await map.updateMarker(currentMap.value.id, marker.id, { stationId: marker.station.id, x: marker.x, y: marker.y, size: stationMarkerSize(marker.station) })
     }
   }
   markerDrag.value = null
