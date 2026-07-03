@@ -1,0 +1,50 @@
+server:
+  port: ${SERVER_PORT:8011}
+
+spring:
+  application:
+    name: datong-map-server
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/datong_map?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${MYSQL_USER:datong}
+    password: ${MYSQL_PASSWORD:datong123}
+  flyway:
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+  servlet:
+    multipart:
+      max-file-size: ${MAX_FILE_SIZE:500MB}
+      max-request-size: ${MAX_REQUEST_SIZE:520MB}
+
+captcha:
+  provider: ${CAPTCHA_PROVIDER:none}
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:LocalDevelopmentJwtSecretMustBeChangedBeforeDeployment2026}
+    expire-seconds: ${JWT_EXPIRE_SECONDS:86400}
+  auth:
+    cookie-secure: ${AUTH_COOKIE_SECURE:false}
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin123}
+    bucket: ${MINIO_BUCKET:datong-map}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

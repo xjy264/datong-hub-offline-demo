@@ -1,0 +1,1792 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>大同房建公寓段管辖示意图</title>
+  <style>
+    :root {
+      --bg: #eef2f5;
+      --surface: #ffffff;
+      --surface-soft: #f7f9fb;
+      --surface-tint: #eef8f5;
+      --ink: #1e2a32;
+      --muted: #697680;
+      --line: #d3dbe2;
+      --line-strong: #b9c4cd;
+      --accent: #0f766e;
+      --accent-2: #9f5f1a;
+      --danger: #b42318;
+      --red: #ff0000;
+      --blue: #0000ff;
+      --shadow: 0 16px 40px rgba(30, 42, 50, .12);
+      --map-width: 1191px;
+      --map-height: 842px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .app {
+      height: 100%;
+      min-height: 640px;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 12px 16px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      position: relative;
+      z-index: 10;
+    }
+
+    .brand {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 19px;
+      line-height: 1.25;
+      font-weight: 760;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .top-actions,
+    .tool-row,
+    .button-row,
+    .crumbs,
+    .inline-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .action,
+    .chip,
+    .select,
+    .field,
+    .folder-input,
+    .note {
+      border: 1px solid #c5ced7;
+      background: #fff;
+      color: var(--ink);
+      border-radius: 7px;
+      outline: none;
+    }
+
+    .action {
+      min-height: 36px;
+      padding: 0 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    .action.primary {
+      color: #fff;
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    .action.subtle {
+      background: var(--surface-soft);
+    }
+
+    .action.warn {
+      color: var(--danger);
+    }
+
+    .action.icon {
+      width: 38px;
+      padding: 0;
+    }
+
+    .action:disabled,
+    .chip:disabled,
+    .folder-tool:disabled {
+      color: #9aa4af;
+      background: #f1f4f6;
+      border-color: #d8dee4;
+      cursor: not-allowed;
+    }
+
+    .action:focus-visible,
+    .chip:focus-visible,
+    .field:focus-visible,
+    .select:focus-visible,
+    .folder-input:focus-visible,
+    .note:focus-visible,
+    .station-row:focus-visible {
+      outline: 3px solid rgba(15, 118, 110, .24);
+      outline-offset: 2px;
+    }
+
+    .icon-svg {
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
+    }
+
+    .view-root {
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .view-root.map-mode {
+      overflow: hidden;
+    }
+
+    .page {
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      padding: 14px;
+    }
+
+    .page.map-page {
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+    }
+
+    .page-head {
+      display: grid;
+      gap: 10px;
+    }
+
+    .head-main {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 720;
+      line-height: 1.25;
+    }
+
+    .page-title {
+      font-size: 24px;
+      line-height: 1.18;
+      font-weight: 780;
+    }
+
+    .subline,
+    .meta,
+    .empty {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .crumb {
+      min-height: 30px;
+      padding: 0 9px;
+      color: var(--muted);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .crumb.current {
+      color: var(--ink);
+      background: var(--surface-tint);
+      border-color: rgba(15, 118, 110, .35);
+    }
+
+    .panel {
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .map-panel {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .map-toolbar {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .field {
+      width: min(360px, 58vw);
+      height: 36px;
+      padding: 0 11px;
+    }
+
+    .select {
+      min-height: 36px;
+      padding: 0 32px 0 10px;
+    }
+
+    .chip {
+      min-height: 32px;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .chip.active {
+      color: #fff;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .count {
+      color: var(--muted);
+      font-size: 12px;
+      min-width: 88px;
+      text-align: right;
+    }
+
+    .viewport {
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(30, 42, 50, .07) 1px, transparent 1px),
+        linear-gradient(rgba(30, 42, 50, .07) 1px, transparent 1px),
+        #e2e7eb;
+      background-size: 32px 32px;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    .viewport.dragging {
+      cursor: grabbing;
+    }
+
+    .map-canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: var(--map-width);
+      height: var(--map-height);
+      transform-origin: 0 0;
+    }
+
+    .base-map {
+      position: absolute;
+      inset: 0;
+      width: var(--map-width);
+      height: var(--map-height);
+      display: block;
+      background: #fff;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    .hotspot {
+      position: absolute;
+      left: var(--x);
+      top: var(--y);
+      width: var(--size);
+      height: var(--size);
+      padding: 0;
+      border-radius: 999px;
+      background: transparent;
+      transform: translate(-50%, -50%);
+      box-shadow: inset 0 0 0 0 transparent;
+      opacity: 1;
+      z-index: 4;
+    }
+
+    .hotspot.hidden {
+      display: none;
+    }
+
+    .hotspot:hover,
+    .hotspot:focus-visible {
+      outline: 0;
+      box-shadow: inset 0 0 0 .85px rgba(0, 0, 0, .96);
+      z-index: 6;
+    }
+
+    .hover-card {
+      position: fixed;
+      width: 260px;
+      max-width: calc(100vw - 24px);
+      padding: 10px;
+      border: 1px solid #c8d0d8;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .96);
+      box-shadow: 0 16px 36px rgba(30, 42, 50, .18);
+      pointer-events: none;
+      z-index: 30;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity .12s ease, transform .12s ease;
+    }
+
+    .hover-card.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .hover-name {
+      margin: 0 0 6px;
+      font-size: 15px;
+      font-weight: 740;
+      line-height: 1.25;
+    }
+
+    .hover-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .hover-photos {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+    }
+
+    .hover-photos img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      border-radius: 5px;
+      border: 1px solid var(--line);
+    }
+
+    .color-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 6px;
+      border-radius: 999px;
+      vertical-align: -1px;
+      background: var(--dot);
+    }
+
+    .station-page {
+      display: grid;
+      gap: 12px;
+    }
+
+    .badge {
+      min-height: 24px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: #fff;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .station-layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .info-panel,
+    .folder-panel,
+    .image-panel {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 15px;
+      font-weight: 760;
+      line-height: 1.25;
+    }
+
+    .station-name-field {
+      width: 100%;
+      min-height: 46px;
+      padding: 0 12px;
+      font-size: 22px;
+      font-weight: 760;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .form-grid label {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .form-grid .value {
+      min-width: 0;
+      font-size: 13px;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .note {
+      width: 100%;
+      min-height: 118px;
+      resize: vertical;
+      padding: 10px;
+      line-height: 1.45;
+    }
+
+    .manager-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 38%) minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .folder-panel,
+    .image-panel {
+      min-height: 420px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .folder-tree {
+      display: grid;
+      gap: 5px;
+    }
+
+    .folder-row {
+      display: grid;
+      grid-template-columns: 30px minmax(90px, 1fr) auto auto auto;
+      align-items: center;
+      gap: 6px;
+      min-height: 40px;
+      padding: 4px 4px 4px calc(4px + var(--depth) * 18px);
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+    }
+
+    .folder-row.selected {
+      border-color: rgba(15, 118, 110, .35);
+      background: #edf8f5;
+    }
+
+    .folder-pick,
+    .folder-tool {
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid #c5ced7;
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+    }
+
+    .folder-pick {
+      color: #fff;
+      background: var(--accent-2);
+      border-color: var(--accent-2);
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .folder-input {
+      width: 100%;
+      min-width: 0;
+      height: 30px;
+      padding: 0 8px;
+      font-size: 13px;
+      font-weight: 660;
+    }
+
+    .folder-count {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .current-folder {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .folder-path {
+      color: var(--ink);
+      font-weight: 700;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+      gap: 10px;
+    }
+
+    .photo {
+      position: relative;
+      aspect-ratio: 4 / 3;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #f2f5f7;
+    }
+
+    .photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .photo button {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 30px;
+      height: 30px;
+      border-radius: 7px;
+      background: rgba(30, 42, 50, .82);
+      color: #fff;
+      display: grid;
+      place-items: center;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: rgba(30, 42, 50, .93);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 7px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+      z-index: 40;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    @media (max-width: 1050px) {
+      .station-layout,
+      .manager-grid {
+        grid-template-columns: 1fr;
+      }
+
+    }
+
+    @media (max-width: 720px) {
+      .app {
+        min-height: 760px;
+      }
+
+      .topbar,
+      .head-main {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      h1 {
+        white-space: normal;
+      }
+
+      .top-actions {
+        width: 100%;
+      }
+
+      .field,
+      .select {
+        width: 100%;
+      }
+
+      .map-toolbar {
+        align-items: stretch;
+      }
+
+      .tool-row {
+        width: 100%;
+      }
+
+      .count {
+        text-align: left;
+      }
+
+      .folder-row {
+        grid-template-columns: 30px minmax(80px, 1fr) auto;
+      }
+
+      .folder-count {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>大同房建公寓段管辖示意图</h1>
+        <span class="status" id="saveStatus">加载中</span>
+      </div>
+      <div class="top-actions">
+        <button class="action" id="importBtn" title="导入数据">
+          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+          导入
+        </button>
+        <button class="action" id="exportBtn" title="导出数据">
+          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21V9"></path><path d="m7 14 5-5 5 5"></path><path d="M5 3h14"></path></svg>
+          导出数据
+        </button>
+        <button class="action warn" id="clearBtn" title="清空本机保存的数据">
+          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m6 6 1 16h10l1-16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path></svg>
+          清空
+        </button>
+        <input class="file-input" id="importInput" type="file" accept="application/json,.json">
+      </div>
+    </header>
+
+    <main class="view-root" id="viewRoot"></main>
+  </div>
+
+  <input class="file-input" id="imageInput" type="file" accept="image/*" multiple>
+  <div class="hover-card" id="hoverCard"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/stations.js"></script>
+  <script>
+    const MAP_SIZE = { width: 1191, height: 842 };
+    const STORAGE_KEY = "datong-full-map-hotspots-v1";
+    const DB_NAME = "datongFullMapHotspots";
+    const STORE_NAME = "state";
+    const STATE_KEY = "current";
+    const STATIONS = Array.isArray(window.DATONG_STATIONS) ? window.DATONG_STATIONS : [];
+
+    const dom = {
+      viewRoot: document.getElementById("viewRoot"),
+      saveStatus: document.getElementById("saveStatus"),
+      imageInput: document.getElementById("imageInput"),
+      importInput: document.getElementById("importInput"),
+      hoverCard: document.getElementById("hoverCard"),
+      toast: document.getElementById("toast")
+    };
+
+    const state = {
+      scale: 1,
+      panX: 0,
+      panY: 0,
+      mapFitted: false,
+      mapQuery: "",
+      mapColor: "all",
+      selectedId: STATIONS[0] ? STATIONS[0].id : "",
+      storage: "indexedDB",
+      userStations: {},
+      selectedFolderByStation: {},
+      saveTimer: null,
+      imageTargetStationId: ""
+    };
+
+    const icons = {
+      plus: `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>`,
+      search: `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>`,
+      back: `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>`,
+      copy: `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`,
+      trash: `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="m6 6 1 16h10l1-16"></path></svg>`,
+      image: `<svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m21 15-5-5L5 21"></path></svg>`
+    };
+
+    function openDb() {
+      return new Promise((resolve, reject) => {
+        if (!("indexedDB" in window)) {
+          reject(new Error("IndexedDB unavailable"));
+          return;
+        }
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+      });
+    }
+
+    async function readPersistedState() {
+      try {
+        const db = await openDb();
+        return await new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, "readonly");
+          const req = tx.objectStore(STORE_NAME).get(STATE_KEY);
+          req.onerror = () => reject(req.error);
+          req.onsuccess = () => resolve(req.result || null);
+        });
+      } catch (_) {
+        state.storage = "localStorage";
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (_) {
+          return null;
+        }
+      }
+    }
+
+    async function persistState() {
+      const payload = exportPayload();
+      setStatus("保存中");
+      if (state.storage === "indexedDB") {
+        try {
+          const db = await openDb();
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            tx.objectStore(STORE_NAME).put(payload, STATE_KEY);
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+          });
+          setStatus("已保存");
+          return;
+        } catch (_) {
+          state.storage = "localStorage";
+        }
+      }
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        setStatus("已保存");
+      } catch (_) {
+        setStatus("保存失败");
+        showToast("图片或数据过大，请先导出数据");
+      }
+    }
+
+    function normalizeUserStations(input) {
+      const normalized = {};
+      STATIONS.forEach((station) => {
+        const existing = input && input[station.id] ? input[station.id] : {};
+        normalized[station.id] = {
+          name: typeof existing.name === "string" ? existing.name : "",
+          notes: typeof existing.notes === "string" ? existing.notes : "",
+          folders: normalizeFolders(existing.folders || [], 1)
+        };
+      });
+      return normalized;
+    }
+
+    function normalizeFolders(input, depth) {
+      if (!Array.isArray(input) || depth > 3) {
+        return [];
+      }
+      return input.map((folder, index) => {
+        const children = normalizeFolders(folder && folder.children, depth + 1);
+        return {
+          id: typeof folder?.id === "string" ? folder.id : createId("folder"),
+          name: typeof folder?.name === "string" && folder.name.trim() ? folder.name : "新建目录",
+          order: Number.isFinite(folder?.order) ? folder.order : index,
+          children,
+          images: children.length ? [] : normalizeImages(folder?.images)
+        };
+      }).sort((a, b) => a.order - b.order);
+    }
+
+    function normalizeImages(input) {
+      if (!Array.isArray(input)) {
+        return [];
+      }
+      return input.filter((image) => image && typeof image.dataUrl === "string").map((image) => ({
+        id: typeof image.id === "string" ? image.id : createId("image"),
+        name: typeof image.name === "string" ? image.name : "图片",
+        type: typeof image.type === "string" ? image.type : "",
+        size: Number.isFinite(image.size) ? image.size : 0,
+        addedAt: typeof image.addedAt === "string" ? image.addedAt : new Date().toISOString(),
+        dataUrl: image.dataUrl
+      }));
+    }
+
+    function createId(prefix) {
+      return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+
+    function exportPayload() {
+      return {
+        app: "datong-full-map-hotspots",
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        userStations: state.userStations
+      };
+    }
+
+    function queueSave() {
+      clearTimeout(state.saveTimer);
+      state.saveTimer = setTimeout(persistState, 260);
+    }
+
+    function setStatus(text) {
+      dom.saveStatus.textContent = text;
+    }
+
+    function showToast(message) {
+      dom.toast.textContent = message;
+      dom.toast.classList.add("show");
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => dom.toast.classList.remove("show"), 1800);
+    }
+
+    function pinColor(color) {
+      return color === "blue" ? "#0000ff" : "#ff0000";
+    }
+
+    function colorLabel(color) {
+      return color === "blue" ? "已撤站" : "车站";
+    }
+
+    function stationData(station) {
+      return state.userStations[station.id] || { name: "", notes: "", folders: [] };
+    }
+
+    function displayName(station) {
+      const customName = stationData(station).name;
+      return customName && customName.trim() ? customName.trim() : station.name;
+    }
+
+    function countFolderImages(folders) {
+      return (folders || []).reduce((total, folder) => {
+        return total + (folder.images || []).length + countFolderImages(folder.children || []);
+      }, 0);
+    }
+
+    function collectFolderImages(folders, limit = Infinity) {
+      const result = [];
+      const walk = (items) => {
+        for (const folder of items || []) {
+          for (const image of folder.images || []) {
+            if (result.length >= limit) return;
+            result.push(image);
+          }
+          walk(folder.children || []);
+          if (result.length >= limit) return;
+        }
+      };
+      walk(folders || []);
+      return result;
+    }
+
+    function stationImageCount(station) {
+      return countFolderImages(stationData(station).folders || []);
+    }
+
+    function findFolderInfo(folders, id, depth = 1, parent = null, siblings = folders, path = []) {
+      for (const folder of folders || []) {
+        const currentPath = [...path, folder];
+        if (folder.id === id) {
+          return { folder, depth, parent, siblings, path: currentPath };
+        }
+        const found = findFolderInfo(folder.children || [], id, depth + 1, folder, folder.children || [], currentPath);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    function firstFolderId(folders) {
+      return folders && folders.length ? folders[0].id : "";
+    }
+
+    function selectedFolderInfo(station) {
+      const data = stationData(station);
+      const selectedId = state.selectedFolderByStation[station.id];
+      let info = selectedId ? findFolderInfo(data.folders || [], selectedId) : null;
+      if (!info && data.folders && data.folders.length) {
+        state.selectedFolderByStation[station.id] = firstFolderId(data.folders);
+        info = findFolderInfo(data.folders, state.selectedFolderByStation[station.id]);
+      }
+      return info;
+    }
+
+    function isLeafFolder(folder) {
+      return !folder || !(folder.children || []).length;
+    }
+
+    function isFolderEmpty(folder) {
+      return !(folder.children || []).length && !(folder.images || []).length;
+    }
+
+    function canAddChild(info) {
+      return Boolean(info && info.depth < 3 && !(info.folder.images || []).length);
+    }
+
+    function nextOrder(folders) {
+      return (folders || []).reduce((max, folder) => Math.max(max, Number.isFinite(folder.order) ? folder.order : 0), -1) + 1;
+    }
+
+    function newFolder(name, order) {
+      return {
+        id: createId("folder"),
+        name,
+        order,
+        children: [],
+        images: []
+      };
+    }
+
+    function addRootFolder(station) {
+      const data = stationData(station);
+      const folder = newFolder("新建目录", nextOrder(data.folders));
+      data.folders.push(folder);
+      state.selectedFolderByStation[station.id] = folder.id;
+      renderApp();
+      queueSave();
+    }
+
+    function addChildFolder(station, folderId) {
+      const info = findFolderInfo(stationData(station).folders, folderId);
+      if (!canAddChild(info)) {
+        showToast("第三级目录或已有图片的目录不能添加下级");
+        return;
+      }
+      const folder = newFolder("新建目录", nextOrder(info.folder.children || []));
+      info.folder.children.push(folder);
+      state.selectedFolderByStation[station.id] = folder.id;
+      renderApp();
+      queueSave();
+    }
+
+    function deleteFolder(station, folderId) {
+      const data = stationData(station);
+      const info = findFolderInfo(data.folders, folderId);
+      if (!info) return;
+      if (!isFolderEmpty(info.folder)) {
+        showToast("非空目录不能删除");
+        return;
+      }
+      info.siblings.splice(info.siblings.indexOf(info.folder), 1);
+      if (state.selectedFolderByStation[station.id] === folderId) {
+        state.selectedFolderByStation[station.id] = firstFolderId(data.folders);
+      }
+      renderApp();
+      queueSave();
+    }
+
+    function parseRoute() {
+      const raw = (location.hash || "#map").slice(1);
+      const parts = raw.split("/").filter(Boolean).map((part) => decodeURIComponent(part));
+      if (parts[0] === "station") {
+        return { name: "station", stationId: parts[1] || "" };
+      }
+      return { name: "map" };
+    }
+
+    function goMap() {
+      location.hash = "map";
+    }
+
+    function goStation(stationId) {
+      location.hash = `station/${encodeURIComponent(stationId)}`;
+    }
+
+    function renderApp() {
+      hideHover();
+      const route = parseRoute();
+      dom.viewRoot.classList.toggle("map-mode", route.name === "map");
+      if (route.name === "station") {
+        renderStationPage(route);
+        return;
+      }
+      renderMapPage();
+    }
+
+    function renderMapPage() {
+      const totalImages = STATIONS.reduce((sum, station) => sum + stationImageCount(station), 0);
+      dom.viewRoot.innerHTML = `
+        <section class="page map-page">
+          <div class="page-head">
+            <div class="head-main">
+              <div>
+                <div class="eyebrow">整图总览</div>
+                <h2 class="page-title">PDF 底图热点入口</h2>
+                <p class="subline">点击红色车站或蓝色已撤站图标，进入对应车间页面。</p>
+              </div>
+              <div class="inline-meta">
+                <span class="badge">${STATIONS.length} 个点位</span>
+                <span class="badge">${totalImages} 张图片</span>
+              </div>
+            </div>
+            <div class="workshop-strip">
+              ${WORKSHOPS.map((workshop) => {
+                const stats = workshopStats(workshop.id);
+                return `
+                  <button class="workshop-card" data-open-workshop="${escapeAttr(workshop.id)}" style="--workshop-color:${workshop.color}">
+                    <strong>${escapeHtml(workshop.name)}</strong>
+                    <span>${stats.total} 点 · ${stats.images} 图</span>
+                  </button>
+                `;
+              }).join("")}
+            </div>
+          </div>
+          <section class="panel map-panel">
+            <div class="map-toolbar">
+              <div class="tool-row">
+                <input class="field" id="mapSearch" type="search" placeholder="搜索站名、里程、车间" value="${escapeAttr(state.mapQuery)}">
+                <select class="select" id="mapWorkshopFilter" aria-label="车间筛选">
+                  <option value="all"${state.mapWorkshop === "all" ? " selected" : ""}>全部车间</option>
+                  ${WORKSHOPS.map((workshop) => `<option value="${escapeAttr(workshop.id)}"${state.mapWorkshop === workshop.id ? " selected" : ""}>${escapeHtml(workshop.name)}</option>`).join("")}
+                </select>
+                ${renderTypeChips("map")}
+              </div>
+              <div class="tool-row">
+                <span class="count" id="visibleCount"></span>
+                <button class="action icon" id="zoomOutBtn" title="缩小" aria-label="缩小">
+                  <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path></svg>
+                </button>
+                <button class="action icon" id="zoomInBtn" title="放大" aria-label="放大">
+                  <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                </button>
+                <button class="action icon" id="fitBtn" title="适应整图" aria-label="适应整图">
+                  <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="viewport" id="viewport">
+              <div class="map-canvas" id="mapCanvas">
+                <img class="base-map" src="assets/full-map.svg" alt="大同房建公寓段管辖示意图 PDF 底图">
+                <div id="hotspotLayer"></div>
+              </div>
+            </div>
+          </section>
+        </section>
+      `;
+      bindMapPage();
+    }
+
+    function renderTypeChips(scope) {
+      const current = scope === "map" ? state.mapColor : state.workshopColor;
+      return `
+        <button class="chip${current === "all" ? " active" : ""}" data-type-filter="${scope}:all">全部</button>
+        <button class="chip${current === "red" ? " active" : ""}" data-type-filter="${scope}:red"><span class="color-dot" style="--dot:var(--red)"></span>车站</button>
+        <button class="chip${current === "blue" ? " active" : ""}" data-type-filter="${scope}:blue"><span class="color-dot" style="--dot:var(--blue)"></span>已撤站</button>
+      `;
+    }
+
+    function filteredMapStations() {
+      const query = state.mapQuery.trim().toLowerCase();
+      return STATIONS.filter((station) => {
+        const workshop = workshopOfStation(station);
+        const colorMatch = state.mapColor === "all" || station.color === state.mapColor;
+        const workshopMatch = state.mapWorkshop === "all" || workshop.id === state.mapWorkshop;
+        const haystack = `${displayName(station)} ${station.name} ${station.type} ${station.mileage || ""} ${workshop.name}`.toLowerCase();
+        return colorMatch && workshopMatch && (!query || haystack.includes(query));
+      });
+    }
+
+    function renderHotspots() {
+      const layer = document.getElementById("hotspotLayer");
+      const count = document.getElementById("visibleCount");
+      if (!layer || !count) return;
+      const visible = new Set(filteredMapStations().map((station) => station.id));
+      count.textContent = `${visible.size}/${STATIONS.length} 点`;
+      layer.innerHTML = STATIONS.map((station) => {
+        const hidden = visible.has(station.id) ? "" : " hidden";
+        return `
+          <button
+            class="hotspot${hidden}"
+            style="--x:${station.position.x}px;--y:${station.position.y}px;--size:${station.size || 4.4}px"
+            data-station="${escapeAttr(station.id)}"
+            aria-label="${escapeAttr(displayName(station))}"
+            title="${escapeAttr(displayName(station))}"></button>
+        `;
+      }).join("");
+    }
+
+    function bindMapPage() {
+      const viewport = document.getElementById("viewport");
+      const mapCanvas = document.getElementById("mapCanvas");
+      const layer = document.getElementById("hotspotLayer");
+      document.querySelectorAll("[data-open-workshop]").forEach((button) => {
+        button.addEventListener("click", () => goWorkshop(button.dataset.openWorkshop));
+      });
+      document.getElementById("mapSearch").addEventListener("input", (event) => {
+        state.mapQuery = event.target.value;
+        renderHotspots();
+      });
+      document.getElementById("mapWorkshopFilter").addEventListener("change", (event) => {
+        state.mapWorkshop = event.target.value;
+        renderHotspots();
+      });
+      document.querySelectorAll("[data-type-filter^='map:']").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.mapColor = button.dataset.typeFilter.split(":")[1];
+          renderMapPage();
+        });
+      });
+      document.getElementById("zoomInBtn").addEventListener("click", () => zoomAt(1.18));
+      document.getElementById("zoomOutBtn").addEventListener("click", () => zoomAt(1 / 1.18));
+      document.getElementById("fitBtn").addEventListener("click", () => {
+        state.mapFitted = true;
+        fitToViewport();
+      });
+      layer.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-station]");
+        if (!button) return;
+        const station = STATIONS.find((item) => item.id === button.dataset.station);
+        if (station) {
+          state.selectedId = station.id;
+          goWorkshop(stationWorkshopId(station), station.id);
+        }
+      });
+      layer.addEventListener("pointerover", (event) => {
+        const button = event.target.closest("[data-station]");
+        if (!button) return;
+        const station = STATIONS.find((item) => item.id === button.dataset.station);
+        if (station) showHover(station, event);
+      });
+      layer.addEventListener("pointermove", (event) => {
+        if (dom.hoverCard.classList.contains("show")) moveHover(event);
+      });
+      layer.addEventListener("pointerout", (event) => {
+        if (event.target.closest("[data-station]")) hideHover();
+      });
+      viewport.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        zoomAt(event.deltaY < 0 ? 1.12 : 1 / 1.12, event.clientX, event.clientY);
+      }, { passive: false });
+      let drag = null;
+      viewport.addEventListener("pointerdown", (event) => {
+        if (event.target.closest("button, input, textarea, select")) return;
+        drag = { x: event.clientX, y: event.clientY, panX: state.panX, panY: state.panY };
+        viewport.classList.add("dragging");
+        viewport.setPointerCapture(event.pointerId);
+      });
+      viewport.addEventListener("pointermove", (event) => {
+        if (!drag) return;
+        state.panX = drag.panX + event.clientX - drag.x;
+        state.panY = drag.panY + event.clientY - drag.y;
+        applyTransform();
+      });
+      viewport.addEventListener("pointerup", () => {
+        drag = null;
+        viewport.classList.remove("dragging");
+      });
+      viewport.addEventListener("pointercancel", () => {
+        drag = null;
+        viewport.classList.remove("dragging");
+      });
+      renderHotspots();
+      requestAnimationFrame(() => {
+        if (!state.mapFitted) {
+          state.mapFitted = true;
+          fitToViewport();
+        } else if (mapCanvas) {
+          applyTransform();
+        }
+      });
+    }
+
+    function renderWorkshopPage(route) {
+      const workshop = WORKSHOP_BY_ID.get(route.workshopId) || WORKSHOPS[0];
+      const stats = workshopStats(workshop.id);
+      const stations = filteredWorkshopStations(workshop.id);
+      dom.viewRoot.innerHTML = `
+        <section class="page workshop-page">
+          <div class="page-head">
+            <div class="crumbs">
+              <button class="crumb" data-go-map>${icons.back}地图</button>
+              <span class="crumb current">${escapeHtml(workshop.name)}</span>
+            </div>
+            <div class="head-main">
+              <div>
+                <div class="eyebrow">车间页面</div>
+                <h2 class="page-title">${escapeHtml(workshop.name)}</h2>
+                <p class="subline">站点从整张 PDF 热点进入，在这里集中查看并打开专用详情页。</p>
+              </div>
+              <div class="button-row">
+                <button class="action" data-go-map>${icons.back}返回地图</button>
+              </div>
+            </div>
+          </div>
+          <div class="summary-grid">
+            <div class="metric"><b>${stats.total}</b><span>全部点位</span></div>
+            <div class="metric"><b>${stats.red}</b><span>车站</span></div>
+            <div class="metric"><b>${stats.blue}</b><span>已撤站</span></div>
+            <div class="metric"><b>${stats.images}</b><span>图片</span></div>
+          </div>
+          <section class="panel">
+            <div class="workshop-toolbar">
+              <div class="tool-row">
+                <input class="field" id="workshopSearch" type="search" placeholder="搜索本车间站点、里程" value="${escapeAttr(state.workshopQuery)}">
+                ${renderTypeChips("workshop")}
+              </div>
+              <span class="count" id="workshopCount">${stations.length}/${stats.total} 点</span>
+            </div>
+            <div class="station-list" id="stationList">
+              ${stations.length ? stations.map((station) => renderStationRow(station, route.focusId)).join("") : `<div class="empty">没有匹配的站点</div>`}
+            </div>
+          </section>
+        </section>
+      `;
+      document.querySelectorAll("[data-go-map]").forEach((button) => button.addEventListener("click", goMap));
+      document.getElementById("workshopSearch").addEventListener("input", (event) => {
+        state.workshopQuery = event.target.value;
+        updateWorkshopStationList(workshop.id, route.focusId);
+      });
+      document.querySelectorAll("[data-type-filter^='workshop:']").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.workshopColor = button.dataset.typeFilter.split(":")[1];
+          document.querySelectorAll("[data-type-filter^='workshop:']").forEach((item) => {
+            item.classList.toggle("active", item === button);
+          });
+          updateWorkshopStationList(workshop.id, route.focusId);
+        });
+      });
+      bindWorkshopStationRows();
+      if (route.focusId) {
+        const row = Array.from(document.querySelectorAll("[data-open-station]")).find((item) => item.dataset.openStation === route.focusId);
+        if (row) row.scrollIntoView({ block: "center", behavior: "auto" });
+      }
+    }
+
+    function updateWorkshopStationList(workshopId, focusId = "") {
+      const stats = workshopStats(workshopId);
+      const stations = filteredWorkshopStations(workshopId);
+      const list = document.getElementById("stationList");
+      const count = document.getElementById("workshopCount");
+      if (!list || !count) return;
+      count.textContent = `${stations.length}/${stats.total} 点`;
+      list.innerHTML = stations.length ? stations.map((station) => renderStationRow(station, focusId)).join("") : `<div class="empty">没有匹配的站点</div>`;
+      bindWorkshopStationRows();
+    }
+
+    function bindWorkshopStationRows() {
+      document.querySelectorAll("[data-open-station]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.selectedId = button.dataset.openStation;
+          goStation(button.dataset.openStation);
+        });
+      });
+    }
+
+    function filteredWorkshopStations(workshopId) {
+      const query = state.workshopQuery.trim().toLowerCase();
+      return STATIONS.filter((station) => {
+        const colorMatch = state.workshopColor === "all" || station.color === state.workshopColor;
+        const workshopMatch = stationWorkshopId(station) === workshopId;
+        const haystack = `${displayName(station)} ${station.name} ${station.type} ${station.mileage || ""}`.toLowerCase();
+        return workshopMatch && colorMatch && (!query || haystack.includes(query));
+      }).sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x);
+    }
+
+    function renderStationRow(station, focusId) {
+      const focused = station.id === focusId ? " focused" : "";
+      return `
+        <button class="station-row${focused}" data-open-station="${escapeAttr(station.id)}">
+          <span>
+            <strong><span class="color-dot" style="--dot:${pinColor(station.color)}"></span>${escapeHtml(displayName(station))}</strong>
+            <span class="meta">${escapeHtml(colorLabel(station.color))} · 里程 ${escapeHtml(station.mileage || "未匹配")} · 图片 ${stationImageCount(station)} 张</span>
+          </span>
+          <span class="badge">详情</span>
+        </button>
+      `;
+    }
+
+    function renderStationPage(route) {
+      const station = STATIONS.find((item) => item.id === route.stationId) || STATIONS.find((item) => item.id === state.selectedId) || STATIONS[0];
+      if (!station) {
+        dom.viewRoot.innerHTML = `<section class="page"><div class="empty">没有站点数据</div></section>`;
+        return;
+      }
+      state.selectedId = station.id;
+      const data = stationData(station);
+      const workshop = workshopOfStation(station);
+      const folderInfo = selectedFolderInfo(station);
+      const selectedFolder = folderInfo && folderInfo.folder;
+      const canAddImages = Boolean(selectedFolder && isLeafFolder(selectedFolder));
+      const folderImages = canAddImages ? selectedFolder.images || [] : [];
+      const totalImages = stationImageCount(station);
+      const folderHint = !data.folders.length ? "请添加目录" : (!selectedFolder ? "请选择目录" : (canAddImages ? `${folderInfo.path.map((item) => item.name).join(" / ")}` : "请选择叶子目录添加图片"));
+      dom.viewRoot.innerHTML = `
+        <section class="page station-page">
+          <div class="page-head">
+            <div class="crumbs">
+              <button class="crumb" data-go-map>${icons.back}地图</button>
+              <button class="crumb" data-go-workshop="${escapeAttr(workshop.id)}">${escapeHtml(workshop.name)}</button>
+              <span class="crumb current">${escapeHtml(displayName(station))}</span>
+            </div>
+            <div class="head-main">
+              <div>
+                <div class="eyebrow">站点详情</div>
+                <h2 class="page-title">${escapeHtml(displayName(station))}</h2>
+                <p class="subline">名称、备注、目录和图片都保存在本机，可通过导出数据带走。</p>
+              </div>
+              <div class="button-row">
+                <button class="action" id="copyStationBtn">${icons.copy}复制信息</button>
+                <button class="action" data-go-workshop="${escapeAttr(workshop.id)}">${icons.back}返回车间</button>
+              </div>
+            </div>
+          </div>
+          <div class="station-layout">
+            <section class="panel info-panel">
+              <div>
+                <input class="field station-name-field" id="stationNameInput" value="${escapeAttr(displayName(station))}" aria-label="站点名称">
+                <p class="meta" style="margin-top:6px;"><span class="color-dot" style="--dot:${pinColor(station.color)}"></span>${escapeHtml(colorLabel(station.color))} · 自动识别：${escapeHtml(station.autoName || station.name)}</p>
+              </div>
+              <div class="form-grid">
+                <label for="workshopSelect">车间</label>
+                <select class="select" id="workshopSelect">
+                  ${WORKSHOPS.map((item) => `<option value="${escapeAttr(item.id)}"${item.id === workshop.id ? " selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}
+                </select>
+                <label>里程</label><div class="value">${escapeHtml(station.mileage || "未匹配")}</div>
+                <label>坐标</label><div class="value">${station.position.x.toFixed(1)}, ${station.position.y.toFixed(1)}</div>
+                <label>图片</label><div class="value">${totalImages} 张</div>
+                <label>保存</label><div class="value">${state.storage === "indexedDB" ? "浏览器本地数据库" : "浏览器本地存储"}</div>
+              </div>
+              <div>
+                <h3 class="panel-title" style="margin-bottom:8px;">备注</h3>
+                <textarea class="note" id="noteInput" placeholder="填写站点备注">${escapeHtml(data.notes || "")}</textarea>
+              </div>
+            </section>
+            <div class="manager-grid">
+              <section class="panel folder-panel">
+                <div class="panel-head">
+                  <h3 class="panel-title">目录管理</h3>
+                  <button class="action primary" id="addRootFolderBtn">${icons.plus}添加一级目录</button>
+                </div>
+                <div class="folder-tree" id="folderTree">
+                  ${data.folders.length ? renderFolderRows(data.folders, selectedFolder && selectedFolder.id) : `<div class="empty">请添加目录</div>`}
+                </div>
+              </section>
+              <section class="panel image-panel">
+                <div class="panel-head">
+                  <div class="current-folder">
+                    <h3 class="panel-title">当前目录图片</h3>
+                    <div class="folder-path">${escapeHtml(folderHint)}</div>
+                    <div class="meta">${selectedFolder ? (canAddImages ? "叶子目录可添加图片" : "该目录有下级，图片请放到叶子目录") : "未选择目录"}</div>
+                  </div>
+                  <button class="action primary" id="addImageBtn"${canAddImages ? "" : " disabled"}>${icons.image}添加图片</button>
+                </div>
+                <div class="image-grid">
+                  ${folderImages.length ? folderImages.map((image) => `
+                    <div class="photo">
+                      <img src="${escapeAttr(image.dataUrl)}" alt="${escapeAttr(image.name || selectedFolder.name)}">
+                      <button data-delete-image="${escapeAttr(image.id)}" title="删除图片" aria-label="删除图片">
+                        <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                      </button>
+                    </div>
+                  `).join("") : `<div class="empty">${canAddImages ? "暂无图片" : folderHint}</div>`}
+                </div>
+              </section>
+            </div>
+          </div>
+        </section>
+      `;
+      bindStationPage(station);
+    }
+
+    function renderFolderRows(folders, selectedId, depth = 1) {
+      return (folders || []).map((folder) => {
+        const selected = folder.id === selectedId ? " selected" : "";
+        const imageCount = countFolderImages([folder]);
+        const childrenCount = (folder.children || []).length;
+        const addDisabled = depth >= 3 || (folder.images || []).length ? " disabled" : "";
+        const deleteDisabled = isFolderEmpty(folder) ? "" : " disabled";
+        return `
+          <div class="folder-row${selected}" data-folder-row="${escapeAttr(folder.id)}" style="--depth:${depth - 1}">
+            <button class="folder-pick" data-folder-select="${escapeAttr(folder.id)}" title="选择目录">${depth}</button>
+            <input class="folder-input" data-folder-name="${escapeAttr(folder.id)}" value="${escapeAttr(folder.name)}" aria-label="目录名称">
+            <span class="folder-count">${imageCount}图${childrenCount ? ` · ${childrenCount}级` : ""}</span>
+            <button class="folder-tool" data-add-child="${escapeAttr(folder.id)}"${addDisabled} title="${addDisabled ? "第三级目录或已有图片的目录不能添加下级" : "添加下级目录"}" aria-label="添加下级目录">${icons.plus}</button>
+            <button class="folder-tool" data-delete-folder="${escapeAttr(folder.id)}"${deleteDisabled} title="${deleteDisabled ? "非空目录不能删除" : "删除目录"}" aria-label="删除目录">${icons.trash}</button>
+          </div>
+          ${renderFolderRows(folder.children || [], selectedId, depth + 1)}
+        `;
+      }).join("");
+    }
+
+    function bindStationPage(station) {
+      document.querySelectorAll("[data-go-map]").forEach((button) => button.addEventListener("click", goMap));
+      document.querySelectorAll("[data-go-workshop]").forEach((button) => {
+        button.addEventListener("click", () => goWorkshop(button.dataset.goWorkshop, station.id));
+      });
+      document.getElementById("copyStationBtn").addEventListener("click", () => copyStationInfo(station));
+      document.getElementById("stationNameInput").addEventListener("input", (event) => {
+        state.userStations[station.id].name = event.target.value;
+        queueSave();
+      });
+      document.getElementById("workshopSelect").addEventListener("change", (event) => {
+        state.userStations[station.id].workshop = event.target.value;
+        queueSave();
+        renderApp();
+      });
+      document.getElementById("noteInput").addEventListener("input", (event) => {
+        state.userStations[station.id].notes = event.target.value;
+        queueSave();
+      });
+      document.getElementById("addRootFolderBtn").addEventListener("click", () => addRootFolder(station));
+      document.getElementById("addImageBtn").addEventListener("click", () => {
+        const info = selectedFolderInfo(station);
+        if (!info || !isLeafFolder(info.folder)) {
+          showToast("请选择叶子目录");
+          return;
+        }
+        state.imageTargetStationId = station.id;
+        dom.imageInput.value = "";
+        dom.imageInput.click();
+      });
+      const tree = document.getElementById("folderTree");
+      tree.querySelectorAll("[data-folder-select]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.selectedFolderByStation[station.id] = button.dataset.folderSelect;
+          renderApp();
+        });
+      });
+      tree.querySelectorAll("[data-folder-row]").forEach((row) => {
+        row.addEventListener("dblclick", () => {
+          state.selectedFolderByStation[station.id] = row.dataset.folderRow;
+          renderApp();
+        });
+      });
+      tree.querySelectorAll("[data-folder-name]").forEach((input) => {
+        input.addEventListener("input", () => {
+          const info = findFolderInfo(stationData(station).folders, input.dataset.folderName);
+          if (info) {
+            info.folder.name = input.value || "新建目录";
+            queueSave();
+          }
+        });
+      });
+      tree.querySelectorAll("[data-add-child]").forEach((button) => {
+        button.addEventListener("click", () => addChildFolder(station, button.dataset.addChild));
+      });
+      tree.querySelectorAll("[data-delete-folder]").forEach((button) => {
+        button.addEventListener("click", () => deleteFolder(station, button.dataset.deleteFolder));
+      });
+      document.querySelectorAll("[data-delete-image]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const current = selectedFolderInfo(station);
+          if (!current || !isLeafFolder(current.folder)) return;
+          current.folder.images = current.folder.images.filter((image) => image.id !== button.dataset.deleteImage);
+          renderApp();
+          queueSave();
+        });
+      });
+    }
+
+    function showHover(station, event) {
+      const data = stationData(station);
+      const images = collectFolderImages(data.folders || [], 3);
+      const totalImages = stationImageCount(station);
+      const workshop = workshopOfStation(station);
+      dom.hoverCard.innerHTML = `
+        <p class="hover-name">${escapeHtml(displayName(station))}</p>
+        <div class="hover-meta"><span class="color-dot" style="--dot:${pinColor(station.color)}"></span>${escapeHtml(colorLabel(station.color))}</div>
+        <div class="hover-meta">车间：${escapeHtml(workshop.name)}</div>
+        <div class="hover-meta">里程：${escapeHtml(station.mileage || "未匹配")}</div>
+        <div class="hover-meta">图片：${totalImages} 张</div>
+        ${images.length ? `<div class="hover-photos">${images.map((image) => `<img src="${escapeAttr(image.dataUrl)}" alt="">`).join("")}</div>` : ""}
+      `;
+      moveHover(event);
+      dom.hoverCard.classList.add("show");
+    }
+
+    function moveHover(event) {
+      const margin = 12;
+      const rect = dom.hoverCard.getBoundingClientRect();
+      let x = event.clientX + 14;
+      let y = event.clientY + 14;
+      if (x + rect.width + margin > window.innerWidth) {
+        x = event.clientX - rect.width - 14;
+      }
+      if (y + rect.height + margin > window.innerHeight) {
+        y = event.clientY - rect.height - 14;
+      }
+      dom.hoverCard.style.left = `${Math.max(margin, x)}px`;
+      dom.hoverCard.style.top = `${Math.max(margin, y)}px`;
+    }
+
+    function hideHover() {
+      dom.hoverCard.classList.remove("show");
+    }
+
+    function applyTransform() {
+      const mapCanvas = document.getElementById("mapCanvas");
+      if (mapCanvas) {
+        mapCanvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.scale})`;
+      }
+    }
+
+    function fitToViewport() {
+      const viewport = document.getElementById("viewport");
+      if (!viewport) return;
+      const rect = viewport.getBoundingClientRect();
+      const scale = Math.min((rect.width - 40) / MAP_SIZE.width, (rect.height - 40) / MAP_SIZE.height);
+      state.scale = clamp(scale, 0.25, 2.8);
+      state.panX = (rect.width - MAP_SIZE.width * state.scale) / 2;
+      state.panY = (rect.height - MAP_SIZE.height * state.scale) / 2;
+      applyTransform();
+    }
+
+    function zoomAt(multiplier, clientX, clientY) {
+      const viewport = document.getElementById("viewport");
+      if (!viewport) return;
+      const rect = viewport.getBoundingClientRect();
+      const pointX = clientX == null ? rect.left + rect.width / 2 : clientX;
+      const pointY = clientY == null ? rect.top + rect.height / 2 : clientY;
+      const localX = (pointX - rect.left - state.panX) / state.scale;
+      const localY = (pointY - rect.top - state.panY) / state.scale;
+      const nextScale = clamp(state.scale * multiplier, 0.25, 8);
+      state.panX = pointX - rect.left - localX * nextScale;
+      state.panY = pointY - rect.top - localY * nextScale;
+      state.scale = nextScale;
+      applyTransform();
+    }
+
+    function handleImages(files) {
+      const station = STATIONS.find((item) => item.id === (state.imageTargetStationId || state.selectedId));
+      state.imageTargetStationId = "";
+      if (!station || !files.length) return;
+      const info = selectedFolderInfo(station);
+      if (!info || !isLeafFolder(info.folder)) {
+        showToast("请选择叶子目录");
+        return;
+      }
+      const reads = Array.from(files).filter((file) => file.type.startsWith("image/")).map((file) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(reader.error);
+          reader.onload = () => resolve({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            addedAt: new Date().toISOString(),
+            dataUrl: reader.result
+          });
+          reader.readAsDataURL(file);
+        });
+      });
+      Promise.all(reads).then((images) => {
+        info.folder.images.push(...images);
+        renderApp();
+        queueSave();
+        showToast(`已添加 ${images.length} 张图片`);
+      }).catch(() => showToast("图片读取失败"));
+    }
+
+    function exportJson() {
+      const blob = new Blob([JSON.stringify(exportPayload(), null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "datong-full-map-hotspots-data.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast("已导出数据");
+    }
+
+    function importJson(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const payload = JSON.parse(reader.result);
+          if (!payload || !payload.userStations) {
+            throw new Error("bad payload");
+          }
+          state.userStations = normalizeUserStations(payload.userStations);
+          renderApp();
+          persistState();
+          showToast("已导入数据");
+        } catch (_) {
+          showToast("导入文件不匹配");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function clearLocalData() {
+      if (!confirm("确认清空本机保存的图片、目录和备注？")) return;
+      state.userStations = normalizeUserStations({});
+      localStorage.removeItem(STORAGE_KEY);
+      openDb().then((db) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        tx.objectStore(STORE_NAME).delete(STATE_KEY);
+      }).catch(() => {});
+      renderApp();
+      setStatus("已清空");
+      showToast("已清空");
+    }
+
+    function copyStationInfo(station) {
+      const data = stationData(station);
+      const workshop = workshopOfStation(station);
+      const text = [
+        `站点：${displayName(station)}`,
+        `车间：${workshop.name}`,
+        `类型：${colorLabel(station.color)}`,
+        `里程：${station.mileage || "未匹配"}`,
+        `坐标：${station.position.x.toFixed(1)}, ${station.position.y.toFixed(1)}`,
+        `图片：${countFolderImages(data.folders || [])} 张`,
+        `备注：${data.notes || "无"}`
+      ].join("\n");
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast("已复制")).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.left = "-999px";
+      document.body.appendChild(area);
+      area.focus();
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+      showToast("已复制");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replaceAll("`", "&#096;");
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function bindGlobalEvents() {
+      document.getElementById("exportBtn").addEventListener("click", exportJson);
+      document.getElementById("importBtn").addEventListener("click", () => dom.importInput.click());
+      document.getElementById("clearBtn").addEventListener("click", clearLocalData);
+      dom.importInput.addEventListener("change", (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (file) importJson(file);
+        event.target.value = "";
+      });
+      dom.imageInput.addEventListener("change", (event) => handleImages(event.target.files || []));
+      window.addEventListener("hashchange", renderApp);
+      window.addEventListener("resize", () => {
+        clearTimeout(bindGlobalEvents.resizeTimer);
+        bindGlobalEvents.resizeTimer = setTimeout(() => {
+          if (parseRoute().name === "map") fitToViewport();
+        }, 120);
+      });
+    }
+
+    async function init() {
+      const persisted = await readPersistedState();
+      state.userStations = normalizeUserStations(persisted && persisted.userStations);
+      bindGlobalEvents();
+      if (!location.hash) {
+        history.replaceState(null, "", "#map");
+      }
+      renderApp();
+      setStatus("已加载");
+    }
+
+    init();
+  </script>
+</body>
+</html>
