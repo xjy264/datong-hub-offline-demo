@@ -1,6 +1,7 @@
 package cn.datong.map.common;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -18,6 +19,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> illegalArgument(IllegalArgumentException ex) {
         return ApiResponse.fail(400, ex.getMessage());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public ApiResponse<Void> accessDenied(AccessDeniedException ex) {
+        return ApiResponse.fail(403, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

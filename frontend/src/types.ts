@@ -30,7 +30,39 @@ export interface Station {
   mileage: string
   position: Position
   size: number
-  workshopId: string
+  workshopId: number | null
   notes: string
   folders: StationFolder[]
+}
+
+export interface Workshop {
+  id: number
+  code: string
+  name: string
+  color: string
+  sortOrder: number
+}
+
+export interface MapSummary {
+  id: string
+  name: string
+  backgroundUrl: string
+  width: number
+  height: number
+  createdAt: string
+}
+
+export interface MapMarker {
+  id: string
+  mapId: string
+  x: number
+  y: number
+  size: number
+  station: Station
+}
+
+export interface MapDetail extends MapSummary {
+  markers: MapMarker[]
+  stations: Station[]
+  workshops: Workshop[]
 }

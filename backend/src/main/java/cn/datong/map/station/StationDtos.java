@@ -17,11 +17,14 @@ public final class StationDtos {
     }
 
     public record StationView(String id, String name, String autoName, String type, String color, String line,
-                              String mileage, Position position, double size, String workshopId, String notes,
+                              String mileage, Position position, double size, Long workshopId, String notes,
                               List<FolderView> folders) {
     }
 
-    public record ProfileRequest(String name, String notes, String workshopId) {
+    public record WorkshopView(Long id, String code, String name, String color, int sortOrder) {
+    }
+
+    public record ProfileRequest(String name, String notes, Long workshopId) {
     }
 
     public record FolderRequest(String parentId, String name) {

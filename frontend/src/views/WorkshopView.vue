@@ -3,12 +3,12 @@
     <div class="page-head">
       <div class="crumbs">
         <el-button text @click="router.push('/map')">地图</el-button>
-        <span class="crumb current">{{ workshop.name }}</span>
+        <span class="crumb current">{{ workshop?.name || '车间' }}</span>
       </div>
       <div class="head-main">
         <div>
           <div class="eyebrow">车间页面</div>
-          <h2 class="page-title">{{ workshop.name }}</h2>
+          <h2 class="page-title">{{ workshop?.name || '车间' }}</h2>
           <p class="subline">站点从整张 PDF 热点进入，在这里集中查看并打开专用详情页。</p>
         </div>
       </div>
@@ -32,7 +32,7 @@
         <span class="count">{{ filteredStations.length }}/{{ stationList.length }} 点</span>
       </div>
       <div class="station-list">
-        <button v-for="station in filteredStations" :key="station.id" class="station-row" :class="{ focused: station.id === focusId }" @click="router.push(`/stations/${station.id}`)">
+        <button v-for="station in filteredStations" :key="station.id" class="station-row" :class="{ focused: station.id === focusId }" @click="router.push(stationDetailPath(station))">
           <span>
             <strong><span class="color-dot" :style="{ '--dot': station.color === 'blue' ? '#0000ff' : '#ff0000' }"></span>{{ station.name }}</strong>
             <span class="meta">{{ station.color === 'blue' ? '已撤站' : '车站' }} · 里程 {{ station.mileage || '未匹配' }} · 图片 {{ countImages(station.folders) }} 张</span>
@@ -46,11 +46,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { WORKSHOPS } from '../constants/workshops'
 import { useMapStore } from '../stores/map'
 import type { StationFolder } from '../types'
+import { stationDetailPath } from '../utils/stationRoute'
+import { resolveWorkshopRoute } from '../utils/workshopRoute'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,8 +59,12 @@ const map = useMapStore()
 const query = ref('')
 const colorFilter = ref('all')
 const focusId = computed(() => String(route.query.focus || ''))
-const workshop = computed(() => WORKSHOPS.find((item) => item.id === route.params.id) || WORKSHOPS[0])
-const stationList = computed(() => map.stations.filter((station) => station.workshopId === workshop.value.id).sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x))
+const resolved = computed(() => resolveWorkshopRoute(map.workshops, String(route.params.id || '')))
+const workshop = computed(() => resolved.value.workshop)
+const stationList = computed(() => {
+  const id = workshop.value?.id
+  return map.stations.filter((station) => id != null && station.workshopId === id).sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x)
+})
 const filteredStations = computed(() => {
   const text = query.value.trim().toLowerCase()
   return stationList.value.filter((station) => {
@@ -69,9 +74,18 @@ const filteredStations = computed(() => {
   })
 })
 
-onMounted(() => map.load())
+onMounted(async () => {
+  await map.load()
+  redirectLegacyWorkshop()
+})
+
+watch(() => [route.params.id, map.workshops.length], redirectLegacyWorkshop)
 
 function countImages(folders: StationFolder[]): number {
   return folders.reduce((sum, folder) => sum + folder.images.length + countImages(folder.children), 0)
+}
+
+function redirectLegacyWorkshop() {
+  if (resolved.value.replacePath) router.replace({ path: resolved.value.replacePath, query: route.query })
 }
 </script>
