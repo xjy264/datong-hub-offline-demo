@@ -7,6 +7,7 @@ import cn.datong.map.station.StationDtos.ProfileRequest;
 import cn.datong.map.station.StationDtos.RenameFolderRequest;
 import cn.datong.map.station.StationDtos.StationImageView;
 import cn.datong.map.station.StationDtos.StationView;
+import cn.datong.map.station.StationDtos.WorkshopRequest;
 import cn.datong.map.station.StationDtos.WorkshopView;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -46,6 +47,12 @@ public class StationController {
     @GetMapping("/workshops")
     public ApiResponse<List<WorkshopView>> workshops() {
         return ApiResponse.success(workshops.listWorkshops());
+    }
+
+    @PutMapping("/workshops/{workshopId}")
+    public ApiResponse<Void> renameWorkshop(@PathVariable Long workshopId, @RequestBody WorkshopRequest request) {
+        workshops.renameWorkshop(workshopId, request.name());
+        return ApiResponse.success();
     }
 
     @PutMapping("/stations/{stationId}/profile")

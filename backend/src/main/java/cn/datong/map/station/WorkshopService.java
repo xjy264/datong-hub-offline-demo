@@ -4,6 +4,7 @@ import cn.datong.map.common.BusinessException;
 import cn.datong.map.station.StationDtos.WorkshopView;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -41,6 +42,14 @@ public class WorkshopService {
                 .map(WorkshopView::code)
                 .findFirst()
                 .orElseThrow(() -> new BusinessException("车间不存在"));
+    }
+
+    @Transactional
+    public void renameWorkshop(Long id, String name) {
+        String nextName = trimToNull(name);
+        if (nextName == null) throw new BusinessException("车间名称不能为空");
+        int updated = jdbcTemplate.update("UPDATE map_workshop SET name = ? WHERE id = ?", nextName, id);
+        if (updated == 0) throw new BusinessException("车间不存在");
     }
 
     private String trimToNull(String value) {

@@ -73,6 +73,20 @@ class StationServiceWorkshopTest {
                 .hasMessage("车间不存在");
     }
 
+    @Test
+    void renamesWorkshop() {
+        workshops.renameWorkshop(1L, "北部检修车间");
+
+        assertThat(workshops.listWorkshops().getFirst().name()).isEqualTo("北部检修车间");
+    }
+
+    @Test
+    void rejectsBlankWorkshopName() {
+        assertThatThrownBy(() -> workshops.renameWorkshop(1L, "  "))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("车间名称不能为空");
+    }
+
     private static class NoopImageStorage implements ImageStorage {
         @Override
         public StoredObject upload(byte[] bytes, String contentType, String objectName) {

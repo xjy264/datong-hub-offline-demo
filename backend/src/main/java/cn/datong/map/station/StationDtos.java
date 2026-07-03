@@ -24,6 +24,9 @@ public final class StationDtos {
     public record WorkshopView(Long id, String code, String name, String color, int sortOrder) {
     }
 
+    public record WorkshopRequest(String name) {
+    }
+
     public record ProfileRequest(String name, String notes, Long workshopId) {
     }
 

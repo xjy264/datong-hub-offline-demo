@@ -8,7 +8,14 @@
       <div class="head-main">
         <div>
           <div class="eyebrow">车间页面</div>
-          <h2 class="page-title">{{ workshop?.name || '车间' }}</h2>
+          <h2 v-if="!editingName" class="page-title">
+            <button class="title-edit" title="点击修改车间名称" @click="startRenameWorkshop">{{ workshop?.name || '车间' }}</button>
+          </h2>
+          <div v-else class="workshop-name-editor">
+            <el-input v-model="workshopNameDraft" autofocus maxlength="128" @keyup.enter="saveWorkshopName" @keyup.esc="cancelRenameWorkshop" />
+            <el-button type="primary" :loading="savingWorkshopName" @click="saveWorkshopName">保存</el-button>
+            <el-button @click="cancelRenameWorkshop">取消</el-button>
+          </div>
           <p class="subline">站点从整张 PDF 热点进入，在这里集中查看并打开专用详情页。</p>
         </div>
       </div>
@@ -46,6 +53,7 @@
 </template>
 
 <script setup lang="ts">
+import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
@@ -58,6 +66,9 @@ const router = useRouter()
 const map = useMapStore()
 const query = ref('')
 const colorFilter = ref('all')
+const editingName = ref(false)
+const savingWorkshopName = ref(false)
+const workshopNameDraft = ref('')
 const focusId = computed(() => String(route.query.focus || ''))
 const resolved = computed(() => resolveWorkshopRoute(map.workshops, String(route.params.id || '')))
 const workshop = computed(() => resolved.value.workshop)
@@ -87,5 +98,37 @@ function countImages(folders: StationFolder[]): number {
 
 function redirectLegacyWorkshop() {
   if (resolved.value.replacePath) router.replace({ path: resolved.value.replacePath, query: route.query })
+}
+
+function startRenameWorkshop() {
+  if (!workshop.value) return
+  workshopNameDraft.value = workshop.value.name
+  editingName.value = true
+}
+
+function cancelRenameWorkshop() {
+  editingName.value = false
+  workshopNameDraft.value = ''
+}
+
+async function saveWorkshopName() {
+  if (!workshop.value) return
+  const name = workshopNameDraft.value.trim()
+  if (!name) {
+    ElMessage.warning('车间名称不能为空')
+    return
+  }
+  if (name === workshop.value.name) {
+    cancelRenameWorkshop()
+    return
+  }
+  savingWorkshopName.value = true
+  try {
+    await map.renameWorkshop(workshop.value.id, name)
+    ElMessage.success('车间名称已保存')
+    cancelRenameWorkshop()
+  } finally {
+    savingWorkshopName.value = false
+  }
 }
 </script>
