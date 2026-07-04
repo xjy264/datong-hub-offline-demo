@@ -17,6 +17,10 @@
           <strong>{{ workshop.name }}</strong>
           <span>{{ workshopStats(workshop.id).total }} 站 · {{ workshopStats(workshop.id).markers }} 组件</span>
         </button>
+        <button class="workshop-card add-workshop-card" @click="createWorkshop">
+          <strong>新增车间</strong>
+          <span>添加一个新的车间分组</span>
+        </button>
       </div>
     </div>
 
@@ -128,12 +132,17 @@
         <aside class="station-sidebar">
           <template v-if="selectedSidebarStation">
             <div class="eyebrow">当前车站</div>
-            <h3>{{ selectedSidebarStation.name }}</h3>
+            <el-form label-position="top" class="sidebar-form">
+              <el-form-item label="站点名称">
+                <el-input v-model="sidebarForm.name" :disabled="savingSidebarStation" @change="saveSidebarStation" />
+              </el-form-item>
+              <el-form-item label="所属车间">
+                <el-select v-model="sidebarForm.workshopId" :disabled="savingSidebarStation" style="width: 100%" @change="saveSidebarStation">
+                  <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
+                </el-select>
+              </el-form-item>
+            </el-form>
             <dl class="sidebar-info">
-              <div>
-                <dt>车间</dt>
-                <dd>{{ workshopName(selectedSidebarStation.workshopId) }}</dd>
-              </div>
               <div>
                 <dt>图片数量</dt>
                 <dd>{{ countImages(selectedSidebarStation.folders) }} 张</dd>
@@ -163,8 +172,8 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useMapStore } from '../stores/map'
@@ -193,6 +202,8 @@ const selectedMarkerId = ref('')
 const selectedMarkerStationId = ref('')
 const selectedMarkerType = ref<'red' | 'blue'>('red')
 const selectedSidebarStationId = ref('')
+const savingSidebarStation = ref(false)
+const sidebarForm = reactive<{ name: string; workshopId: number | null }>({ name: '', workshopId: null })
 const scale = ref(1)
 const panX = ref(0)
 const panY = ref(0)
@@ -247,6 +258,8 @@ const selectedSidebarStation = computed(() => map.stations.find((station) => sta
 const selectedMarkerStation = computed(() => map.stations.find((station) => station.id === selectedMarkerStationId.value) || null)
 const markerTypeStations = computed(() => map.stations.filter((station) => stationType(station) === selectedMarkerType.value))
 
+watch(selectedSidebarStation, syncSidebarForm)
+
 watch(selectedMarkerType, () => {
   if (selectedMarkerStation.value && stationType(selectedMarkerStation.value) !== selectedMarkerType.value) selectedMarkerStationId.value = ''
 })
@@ -278,6 +291,12 @@ function workshopStats(id: number) {
   const stationIds = new Set(stations.map((station) => station.id))
   const markers = currentMap.value?.markers.filter((marker) => stationIds.has(marker.station.id)).length || 0
   return { total: stations.length, markers }
+}
+
+function syncSidebarForm() {
+  if (!selectedSidebarStation.value) return
+  sidebarForm.name = selectedSidebarStation.value.name
+  sidebarForm.workshopId = selectedSidebarStation.value.workshopId
 }
 
 function countImages(folders: StationFolder[]): number {
@@ -327,6 +346,31 @@ function ensureSidebarSelection() {
 async function changeMap(value: string) {
   await map.loadMap(value)
   router.replace({ path: '/map', query: { mapId: value } })
+}
+
+async function createWorkshop() {
+  const name = await ElMessageBox.prompt('请输入车间名称', '新增车间', { inputValue: '新车间' }).then((result) => result.value.trim()).catch(() => '')
+  if (!name) return
+  const workshop = await map.createWorkshop(name)
+  ElMessage.success('已新增车间')
+  router.push(workshopPath(workshop))
+}
+
+async function saveSidebarStation() {
+  if (!selectedSidebarStation.value) return
+  const name = sidebarForm.name.trim()
+  if (!name) {
+    ElMessage.warning('站点名称不能为空')
+    syncSidebarForm()
+    return
+  }
+  savingSidebarStation.value = true
+  try {
+    await map.updateProfile(selectedSidebarStation.value.id, { name, notes: selectedSidebarStation.value.notes || '', workshopId: sidebarForm.workshopId })
+    ElMessage.success('已保存')
+  } finally {
+    savingSidebarStation.value = false
+  }
 }
 
 function toggleEdit() {

@@ -73,6 +73,19 @@ class StationServiceWorkshopTest {
                 .hasMessage("车间不存在");
     }
 
+
+    @Test
+    void createsWorkshopWithGeneratedCodeColorAndNextSortOrder() {
+        WorkshopView created = workshops.createWorkshop("  新增车间  ");
+
+        assertThat(created.id()).isGreaterThan(2L);
+        assertThat(created.code()).startsWith("workshop-");
+        assertThat(created.name()).isEqualTo("新增车间");
+        assertThat(created.color()).isEqualTo("#0f766e");
+        assertThat(created.sortOrder()).isEqualTo(30);
+        assertThat(workshops.storageCode(created.id())).isEqualTo(created.code());
+    }
+
     @Test
     void renamesWorkshop() {
         workshops.renameWorkshop(1L, "北部检修车间");

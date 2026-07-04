@@ -49,6 +49,11 @@ public class StationController {
         return ApiResponse.success(workshops.listWorkshops());
     }
 
+    @PostMapping("/workshops")
+    public ApiResponse<WorkshopView> createWorkshop(@RequestBody WorkshopRequest request) {
+        return ApiResponse.success(workshops.createWorkshop(request.name()));
+    }
+
     @PutMapping("/workshops/{workshopId}")
     public ApiResponse<Void> renameWorkshop(@PathVariable Long workshopId, @RequestBody WorkshopRequest request) {
         workshops.renameWorkshop(workshopId, request.name());

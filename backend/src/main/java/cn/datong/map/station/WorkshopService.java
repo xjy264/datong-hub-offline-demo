@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class WorkshopService {
@@ -42,6 +43,22 @@ public class WorkshopService {
                 .map(WorkshopView::code)
                 .findFirst()
                 .orElseThrow(() -> new BusinessException("车间不存在"));
+    }
+
+    @Transactional
+    public WorkshopView createWorkshop(String name) {
+        String nextName = trimToNull(name);
+        if (nextName == null) throw new BusinessException("车间名称不能为空");
+        String code = "workshop-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        Integer maxSort = jdbcTemplate.queryForObject("SELECT COALESCE(MAX(sort_order), 0) FROM map_workshop", Integer.class);
+        int sortOrder = (maxSort == null ? 0 : maxSort) + 10;
+        jdbcTemplate.update("INSERT INTO map_workshop (code, name, color, sort_order) VALUES (?, ?, ?, ?)", code, nextName, "#0f766e", sortOrder);
+        return jdbcTemplate.queryForObject("""
+                SELECT id, code, name, color, sort_order
+                FROM map_workshop
+                WHERE code = ?
+                """, (rs, rowNum) -> new WorkshopView(
+                rs.getLong("id"), rs.getString("code"), rs.getString("name"), rs.getString("color"), rs.getInt("sort_order")), code);
     }
 
     @Transactional
