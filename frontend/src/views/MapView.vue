@@ -62,9 +62,7 @@
           <el-button @click="zoomAt(1 / 1.18)">缩小</el-button>
           <el-button @click="zoomAt(1.18)">放大</el-button>
           <el-button @click="openOriginalPdf">查看原始 PDF</el-button>
-          <template v-if="auth.user?.isSuperAdmin">
-            <el-button :type="editMode ? 'primary' : 'default'" @click="toggleEdit">{{ editMode ? '完成编辑' : '编辑布局' }}</el-button>
-          </template>
+          <el-button :type="editMode ? 'primary' : 'default'" @click="toggleEdit">{{ editMode ? '完成编辑' : '编辑布局' }}</el-button>
         </div>
       </div>
 
@@ -204,7 +202,6 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
 import { useMapStore } from '../stores/map'
 import type { MapMarker, Station, StationFolder, StationImage } from '../types'
 import { nextSidebarStationId } from '../utils/mapMarkerClick'
@@ -218,7 +215,6 @@ type DraftMarker = { x: number; y: number; size: number }
 type SearchSuggestion = ReturnType<typeof markerSuggestions>[number]
 
 const map = useMapStore()
-const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const viewport = ref<HTMLElement | null>(null)

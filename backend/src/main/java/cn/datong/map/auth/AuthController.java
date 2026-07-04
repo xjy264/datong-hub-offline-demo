@@ -48,6 +48,12 @@ public class AuthController {
         return ApiResponse.success(captchaService.check(request == null ? null : request.id()));
     }
 
+    @PostMapping("/register")
+    public ApiResponse<Void> register(@Valid @RequestBody RegisterRequest request) {
+        authService.register(request);
+        return ApiResponse.success();
+    }
+
     @PostMapping("/login")
     public ApiResponse<AuthSessionResponse> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         AuthService.LoginResult result = authService.login(request);

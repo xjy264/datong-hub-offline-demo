@@ -5,12 +5,10 @@
         <div>
           <div class="eyebrow">地图选择</div>
           <h2 class="page-title">请选择要查看的地图</h2>
-          <p class="subline">普通用户只选择地图；管理员可以新增、改名、删除地图。</p>
+          <p class="subline">选择地图查看，也可上传、改名、删除地图。</p>
         </div>
-        <template v-if="auth.user?.isSuperAdmin">
-          <el-button type="primary" @click="pdfInput?.click()">上传 PDF 新增地图</el-button>
-          <input ref="pdfInput" class="file-input" type="file" accept="application/pdf,.pdf" @change="uploadPdf" />
-        </template>
+        <el-button type="primary" @click="pdfInput?.click()">上传 PDF 新增地图</el-button>
+        <input ref="pdfInput" class="file-input" type="file" accept="application/pdf,.pdf" @change="uploadPdf" />
       </div>
     </div>
 
@@ -20,13 +18,13 @@
         <div class="map-select-body">
           <strong>{{ item.name }}</strong>
           <span>{{ item.width }} × {{ item.height }}</span>
-          <div v-if="auth.user?.isSuperAdmin" class="button-row">
+          <div class="button-row">
             <el-button size="small" @click.stop="renameMap(item.id, item.name)">改名</el-button>
             <el-button size="small" type="danger" plain @click.stop="deleteMap(item.id, item.name)">删除</el-button>
           </div>
         </div>
       </article>
-      <div v-if="!map.maps.length" class="empty">暂无地图，请联系管理员上传 PDF。</div>
+      <div v-if="!map.maps.length" class="empty">暂无地图，请上传 PDF。</div>
     </section>
   </section>
 </template>
@@ -35,10 +33,8 @@
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
 import { useMapStore } from '../stores/map'
 
-const auth = useAuthStore()
 const map = useMapStore()
 const router = useRouter()
 const pdfInput = ref<HTMLInputElement | null>(null)

@@ -9,7 +9,6 @@ import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.access.AccessDeniedException;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -104,18 +103,17 @@ class MapDocumentServiceTest {
     }
 
     @Test
-    void nonAdminCannotMutateLayout() {
+    void loginUserCanMutateLayoutWithoutAdminFlag() {
         CurrentUser user = new CurrentUser(2L, false);
+        jdbc.update("INSERT INTO map_document VALUES ('uploaded-map', '上传地图', NULL, NULL, NULL, NULL, '/api/maps/uploaded-map/background', 100, 100, 1, CURRENT_TIMESTAMP)");
 
-        assertThatThrownBy(() -> service.createMarker(user, "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7)))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("当前账号没有地图布局编辑权限");
-        assertThatThrownBy(() -> service.renameMap(user, "default-map", new MapDtos.MapNameRequest("无权限")))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("当前账号没有地图布局编辑权限");
-        assertThatThrownBy(() -> service.deleteMap(user, "default-map"))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("当前账号没有地图布局编辑权限");
+        MapDtos.MarkerView marker = service.createMarker(user, "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7));
+        MapDtos.MapSummary renamed = service.renameMap(user, "default-map", new MapDtos.MapNameRequest("全员可编辑"));
+        service.deleteMap(user, "uploaded-map");
+
+        assertThat(marker.station().id()).isEqualTo("xinzhou");
+        assertThat(renamed.name()).isEqualTo("全员可编辑");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM map_document WHERE id = 'uploaded-map'", Integer.class)).isZero();
     }
 
     private static class FakeStorage implements ImageStorage {

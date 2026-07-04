@@ -46,6 +46,7 @@ public class CsrfProtectionFilter extends OncePerRequestFilter {
     private boolean isAuthBootstrapPath(HttpServletRequest request) {
         String path = request.getRequestURI();
         return path.equals("/api/auth/login")
+                || path.equals("/api/auth/register")
                 || path.equals("/api/auth/captcha")
                 || path.equals("/api/auth/captcha/check");
     }

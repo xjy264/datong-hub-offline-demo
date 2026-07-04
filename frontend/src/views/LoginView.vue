@@ -23,6 +23,7 @@
           @reset="resetCaptchaState"
         />
         <el-button type="primary" style="width:100%" :loading="loading" @click="login">登录</el-button>
+        <el-button text style="width:100%;margin:10px 0 0" @click="router.push('/register')">申请注册账号</el-button>
       </el-form>
     </section>
   </div>
@@ -56,7 +57,7 @@ function handleCaptchaVerified(payload: { captchaKey: string; captchaCode: strin
 
 async function login() {
   if (!form.captchaKey) {
-    captchaRef.value?.setError('请先完成滑块验证。')
+    captchaRef.value?.setError('请先完成滑块验证。若一直失败，请稍后重试或联系管理员。')
     return
   }
   loading.value = true

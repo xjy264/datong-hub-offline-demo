@@ -5,6 +5,7 @@ import cn.datong.map.security.JwtTokenProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Set;
@@ -23,16 +24,31 @@ public class AuthService {
         this.jwtTokenProvider = jwtTokenProvider;
     }
 
+    @Transactional
+    public void register(RegisterRequest request) {
+        captchaService.verify(request.captchaKey(), request.captchaCode());
+        String realName = UserInputValidator.realName(request.realName());
+        String phone = UserInputValidator.phone(request.phone());
+        PasswordPolicy.validate(request.password(), request.confirmPassword());
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM sys_user WHERE phone = ? OR username = ?", Integer.class, phone, phone);
+        if (count != null && count > 0) {
+            throw new BusinessException("手机号已存在");
+        }
+        jdbcTemplate.update("""
+                INSERT INTO sys_user (username, password, real_name, phone, status, approval_status, is_super_admin, deleted, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'ENABLED', 'APPROVED', 1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, phone, passwordEncoder.encode(request.password()), realName, phone);
+    }
+
     public LoginResult login(LoginRequest request) {
         captchaService.verify(request.captchaKey(), request.captchaCode());
         String phone = request.phone().trim();
         List<UserRow> users = jdbcTemplate.query("""
-                SELECT id, username, password, real_name, phone, is_super_admin, status, approval_status, deleted
+                SELECT id, username, password, real_name, phone, status, approval_status, deleted
                 FROM sys_user WHERE phone = ? OR username = ? LIMIT 1
                 """, (rs, rowNum) -> new UserRow(
                 rs.getLong("id"), rs.getString("username"), rs.getString("password"), rs.getString("real_name"),
-                rs.getString("phone"), rs.getBoolean("is_super_admin"), rs.getString("status"),
-                rs.getString("approval_status"), rs.getInt("deleted")
+                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getInt("deleted")
         ), phone, phone);
         if (users.isEmpty() || users.getFirst().deleted() == 1 || !passwordEncoder.matches(request.password(), users.getFirst().password())) {
             throw new BusinessException("手机号或密码错误");
@@ -48,12 +64,11 @@ public class AuthService {
 
     public AuthSessionResponse currentSession(Long userId) {
         List<UserRow> users = jdbcTemplate.query("""
-                SELECT id, username, password, real_name, phone, is_super_admin, status, approval_status, deleted
+                SELECT id, username, password, real_name, phone, status, approval_status, deleted
                 FROM sys_user WHERE id = ? LIMIT 1
                 """, (rs, rowNum) -> new UserRow(
                 rs.getLong("id"), rs.getString("username"), rs.getString("password"), rs.getString("real_name"),
-                rs.getString("phone"), rs.getBoolean("is_super_admin"), rs.getString("status"),
-                rs.getString("approval_status"), rs.getInt("deleted")
+                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getInt("deleted")
         ), userId);
         if (users.isEmpty() || users.getFirst().deleted() == 1) {
             throw new BusinessException("用户不存在");
@@ -63,15 +78,15 @@ public class AuthService {
 
     private AuthSessionResponse session(UserRow user) {
         return new AuthSessionResponse(
-                new AuthUser(user.id(), user.username(), user.phone(), user.realName(), user.superAdmin()),
-                user.superAdmin() ? Set.of("*") : Set.of()
+                new AuthUser(user.id(), user.username(), user.phone(), user.realName(), true),
+                Set.of("*")
         );
     }
 
     public record LoginResult(String token, AuthSessionResponse session) {
     }
 
-    private record UserRow(Long id, String username, String password, String realName, String phone, boolean superAdmin,
+    private record UserRow(Long id, String username, String password, String realName, String phone,
                            String status, String approvalStatus, int deleted) {
     }
 }

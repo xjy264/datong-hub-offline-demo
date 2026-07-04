@@ -193,8 +193,8 @@ public class MapDocumentService {
     }
 
     private void requireAdmin(CurrentUser user) {
-        if (user == null || !Boolean.TRUE.equals(user.superAdmin())) {
-            throw new AccessDeniedException("当前账号没有地图布局编辑权限");
+        if (user == null || user.userId() == null) {
+            throw new AccessDeniedException("请先登录");
         }
     }
 
