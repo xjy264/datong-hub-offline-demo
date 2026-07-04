@@ -35,6 +35,8 @@ button { font: inherit; cursor: pointer; }
 .page-head { display: grid; gap: 10px; }
 .head-main { display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; }
 .eyebrow { color: var(--accent); font-weight: 700; font-size: 12px; letter-spacing: .08em; }
+.eyebrow-row { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.back-map-button { padding-left: 0; }
 .page-title { margin: 0; font-size: 24px; }
 .title-edit, .crumb-edit { border: 0; background: transparent; color: inherit; cursor: pointer; }
 .title-edit { padding: 0 2px 2px; border-bottom: 1px dashed currentColor; font: inherit; font-weight: 700; }

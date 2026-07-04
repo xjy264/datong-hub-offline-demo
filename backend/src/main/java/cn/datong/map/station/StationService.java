@@ -126,7 +126,7 @@ public class StationService {
         if (parentId != null) {
             FolderRow parent = requireFolder(parentId);
             if (!stationId.equals(parent.stationId())) throw new BusinessException("目录不属于当前站点");
-            StationRules.ensureCanAddChild(folderDepth(parentId), imageCount(parentId));
+            StationRules.ensureCanAddChild(folderDepth(parentId));
         }
         String id = "folder-" + UUID.randomUUID();
         int order = nextFolderOrder(stationId, parentId);
@@ -155,7 +155,6 @@ public class StationService {
         requireStation(stationId);
         FolderRow folder = requireFolder(folderId);
         if (!stationId.equals(folder.stationId())) throw new BusinessException("目录不属于当前站点");
-        if (childCount(folderId) > 0) throw new BusinessException("该目录有下级，图片请放到叶子目录");
         List<StationImageView> uploaded = new ArrayList<>();
         for (MultipartFile file : files) {
             if (file == null || file.isEmpty() || file.getContentType() == null || !file.getContentType().startsWith("image/")) {

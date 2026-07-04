@@ -8,21 +8,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class StationRulesTest {
     @Test
     void rejectsChildFolderWhenParentIsLevelThree() {
-        assertThatThrownBy(() -> StationRules.ensureCanAddChild(3, 0))
+        assertThatThrownBy(() -> StationRules.ensureCanAddChild(3))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("第三级目录或已有图片的目录不能添加下级");
+                .hasMessage("第三级目录不能添加下级");
     }
 
     @Test
-    void rejectsChildFolderWhenParentAlreadyHasImages() {
-        assertThatThrownBy(() -> StationRules.ensureCanAddChild(1, 2))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("第三级目录或已有图片的目录不能添加下级");
+    void allowsChildFolderWhenParentAlreadyHasImages() {
+        StationRules.ensureCanAddChild(1);
     }
 
     @Test
     void allowsChildFolderBelowLevelThreeWithoutImages() {
-        StationRules.ensureCanAddChild(2, 0);
+        StationRules.ensureCanAddChild(2);
     }
 
     @Test

@@ -61,9 +61,13 @@
             <template #default="{ data }">
               <div class="folder-node-row" :class="{ selected: data.id === selectedFolderId }">
                 <span class="folder-number">{{ data.number }}</span>
-                <el-input :ref="(el: unknown) => setFolderInputRef(data.id, el)" :model-value="data.folder.name" @change="(value: string) => renameFolder(data.folder.id, value)" />
+                <el-input
+                  :ref="(el: unknown) => setFolderInputRef(data.id, el)"
+                  v-model="data.folder.name"
+                  @change="renameFolder(data.folder.id, data.folder.name)"
+                />
                 <span class="folder-count">{{ countImages([data.folder]) }}图{{ data.folder.children.length ? ` · ${data.folder.children.length}级` : '' }}</span>
-                <el-button size="small" :disabled="folderDepth(data) >= 3 || data.folder.images.length > 0" @click.stop="addChildFolder(data.folder.id)">下级</el-button>
+                <el-button size="small" :disabled="folderDepth(data) >= 3" @click.stop="addChildFolder(data.folder.id)">下级</el-button>
                 <el-button size="small" type="danger" plain :disabled="data.folder.children.length > 0 || data.folder.images.length > 0" @click.stop="deleteFolder(data.folder.id)">删除</el-button>
               </div>
             </template>
@@ -76,9 +80,9 @@
             <div class="current-folder">
               <h3 class="panel-title">当前目录图片</h3>
               <div class="folder-path">{{ selectedFolderPath || '请选择目录' }}</div>
-              <div class="meta">{{ selectedFolder && isLeaf(selectedFolder) ? '叶子目录可添加图片' : '图片请放到叶子目录' }}</div>
+              <div class="meta">{{ selectedFolder ? '当前目录可添加图片' : '请选择目录' }}</div>
             </div>
-            <el-button type="primary" :disabled="!selectedFolder || !isLeaf(selectedFolder)" @click="imageInput?.click()">添加图片</el-button>
+            <el-button type="primary" :disabled="!selectedFolder" @click="imageInput?.click()">添加图片</el-button>
             <input ref="imageInput" class="file-input" type="file" multiple accept="image/*" @change="uploadImages" />
           </div>
           <div class="image-grid">
@@ -137,10 +141,6 @@ const selectedFolderImages = computed(() => selectedFolder.value?.images || [])
 
 function countImages(folders: StationFolder[]): number {
   return folders.reduce((sum, folder) => sum + folder.images.length + countImages(folder.children), 0)
-}
-
-function isLeaf(folder: StationFolder) {
-  return folder.children.length === 0
 }
 
 async function saveProfile() {

@@ -11,6 +11,7 @@ import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -32,7 +33,7 @@ class StationServiceWorkshopTest {
         jdbc.execute("CREATE TABLE map_workshop (id BIGINT AUTO_INCREMENT PRIMARY KEY, code VARCHAR(64) NOT NULL UNIQUE, name VARCHAR(128) NOT NULL, color VARCHAR(32) NOT NULL, sort_order INT NOT NULL DEFAULT 0)");
         jdbc.execute("CREATE TABLE map_station (id VARCHAR(64) PRIMARY KEY, name VARCHAR(128), auto_name VARCHAR(128), type VARCHAR(32), color VARCHAR(16), line_name VARCHAR(128), mileage VARCHAR(64), position_x DECIMAL(10,2), position_y DECIMAL(10,2), size DECIMAL(6,2), default_workshop_id VARCHAR(64))");
         jdbc.execute("CREATE TABLE station_profile (station_id VARCHAR(64) PRIMARY KEY, name VARCHAR(128), notes TEXT, workshop_id VARCHAR(64), updated_at DATETIME)");
-        jdbc.execute("CREATE TABLE station_folder (id VARCHAR(80) PRIMARY KEY, station_id VARCHAR(64), parent_id VARCHAR(80), name VARCHAR(128), sort_order INT, created_at DATETIME)");
+        jdbc.execute("CREATE TABLE station_folder (id VARCHAR(80) PRIMARY KEY, station_id VARCHAR(64), parent_id VARCHAR(80), name VARCHAR(128), sort_order INT, created_at DATETIME, updated_at DATETIME)");
         jdbc.execute("CREATE TABLE station_image (id VARCHAR(80) PRIMARY KEY, station_id VARCHAR(64), folder_id VARCHAR(80), name VARCHAR(160), content_type VARCHAR(100), size_bytes BIGINT, bucket VARCHAR(128), object_name VARCHAR(512), created_at DATETIME)");
         jdbc.update("INSERT INTO map_workshop (id, code, name, color, sort_order) VALUES (1, 'north', '北部车间', '#0f766e', 10), (2, 'middle', '中部车间', '#1d4ed8', 20)");
         jdbc.update("INSERT INTO map_station VALUES ('station-1', '红进塔', '红进塔', '车站', 'red', '', '261.396', 1, 2, 4.4, 'north')");
@@ -92,6 +93,19 @@ class StationServiceWorkshopTest {
         assertThatThrownBy(() -> stations.createStation(new CreateStationRequest("  ", "red", 1L, 1, 2, 4.4)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("车站名称不能为空");
+    }
+
+    @Test
+    void uploadsImagesToFolderThatHasChildren() throws Exception {
+        StationDtos.FolderView root = stations.addFolder("station-1", new StationDtos.FolderRequest(null, "根目录"));
+        stations.addFolder("station-1", new StationDtos.FolderRequest(root.id(), "子目录"));
+
+        var uploaded = stations.uploadImages("station-1", root.id(), new MockMultipartFile[]{
+                new MockMultipartFile("files", "a.png", "image/png", new byte[]{1, 2, 3})
+        });
+
+        assertThat(uploaded).hasSize(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM station_image WHERE folder_id = ?", Integer.class, root.id())).isEqualTo(1);
     }
 
 

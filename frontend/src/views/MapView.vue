@@ -3,7 +3,10 @@
     <div class="page-head">
       <div class="head-main">
         <div>
-          <div class="eyebrow">整图总览</div>
+          <div class="eyebrow-row">
+            <el-button text class="back-map-button" @click="router.push('/maps')">返回地图选择</el-button>
+            <span class="eyebrow">整图总览</span>
+          </div>
           <h2 class="page-title">{{ currentMap?.name || '地图' }}</h2>
           <p class="subline">站点信息只保存一份；同一个站点可以在当前背景图上放置多个组件。</p>
         </div>
@@ -27,9 +30,6 @@
     <section class="panel map-panel">
       <div class="map-toolbar">
         <div class="tool-row">
-          <el-select v-model="selectedMapId" class="select-field" placeholder="选择地图" @change="changeMap">
-            <el-option v-for="item in map.maps" :key="item.id" :label="item.name" :value="item.id" />
-          </el-select>
           <el-autocomplete
             v-model="query"
             class="search-field"
@@ -55,10 +55,8 @@
           </el-radio-group>
         </div>
         <div class="tool-row">
-          <el-button @click="router.push('/maps')">返回地图选择</el-button>
           <el-button @click="zoomAt(1 / 1.18)">缩小</el-button>
           <el-button @click="zoomAt(1.18)">放大</el-button>
-          <el-button @click="fitToViewport">适应整图</el-button>
           <el-button @click="openOriginalPdf">查看原始 PDF</el-button>
           <template v-if="auth.user?.isSuperAdmin">
             <el-button :type="editMode ? 'primary' : 'default'" @click="toggleEdit">{{ editMode ? '完成编辑' : '编辑布局' }}</el-button>
@@ -205,7 +203,6 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const viewport = ref<HTMLElement | null>(null)
-const selectedMapId = ref('')
 const query = ref('')
 const workshopFilter = ref<number | 'all'>('all')
 const colorFilter = ref('all')
@@ -232,14 +229,12 @@ onMounted(async () => {
   await map.load()
   const routeMapId = typeof route.query.mapId === 'string' ? route.query.mapId : ''
   if (routeMapId && routeMapId !== map.currentMap?.id) await map.loadMap(routeMapId)
-  selectedMapId.value = map.currentMap?.id || ''
   ensureSidebarSelection()
   await nextTick()
   fitToViewport()
 })
 
 watch(() => map.currentMap?.id, async (id) => {
-  if (id) selectedMapId.value = id
   selectedMarkerId.value = ''
   selectedSidebarStationId.value = ''
   clearDraftMarker()
@@ -355,11 +350,6 @@ function ensureSidebarSelection() {
   const markerStationIds = new Set((currentMap.value?.markers || []).map((marker) => marker.station.id))
   if (selectedSidebarStationId.value && markerStationIds.has(selectedSidebarStationId.value)) return
   selectedSidebarStationId.value = currentMap.value?.markers[0]?.station.id || ''
-}
-
-async function changeMap(value: string) {
-  await map.loadMap(value)
-  router.replace({ path: '/map', query: { mapId: value } })
 }
 
 async function createWorkshop() {
