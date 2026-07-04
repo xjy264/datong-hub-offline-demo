@@ -69,6 +69,30 @@ public class WorkshopService {
         if (updated == 0) throw new BusinessException("车间不存在");
     }
 
+    @Transactional
+    public void deleteWorkshop(Long id) {
+        WorkshopView workshop = requireWorkshop(id);
+        Integer stationCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM map_station s
+                LEFT JOIN station_profile p ON p.station_id = s.id
+                WHERE s.default_workshop_id = ? OR p.workshop_id = ?
+                """, Integer.class, workshop.code(), workshop.code());
+        if (stationCount != null && stationCount > 0) throw new BusinessException("车间下还有车站，不能删除");
+        jdbcTemplate.update("DELETE FROM map_workshop WHERE id = ?", id);
+    }
+
+    private WorkshopView requireWorkshop(Long id) {
+        List<WorkshopView> matches = jdbcTemplate.query("""
+                SELECT id, code, name, color, sort_order
+                FROM map_workshop
+                WHERE id = ?
+                """, (rs, rowNum) -> new WorkshopView(
+                rs.getLong("id"), rs.getString("code"), rs.getString("name"), rs.getString("color"), rs.getInt("sort_order")), id);
+        if (matches.isEmpty()) throw new BusinessException("车间不存在");
+        return matches.getFirst();
+    }
+
     private String trimToNull(String value) {
         if (value == null) return null;
         String trimmed = value.trim();

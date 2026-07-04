@@ -96,6 +96,11 @@ export const useMapStore = defineStore('map', {
       else await this.load(true)
       return workshop
     },
+    async deleteWorkshop(workshopId: number) {
+      await apiDelete(`/workshops/${workshopId}`)
+      if (this.currentMap) await this.loadMap(this.currentMap.id)
+      else await this.load(true)
+    },
     async addFolder(stationId: string, parentId: string | null) {
       const folder = await apiPost<StationFolder>(`/stations/${stationId}/folders`, { parentId, name: '新建目录' })
       if (this.currentMap) await this.loadMap(this.currentMap.id)

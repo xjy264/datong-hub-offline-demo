@@ -53,7 +53,9 @@ button { font: inherit; cursor: pointer; }
 .workshop-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 .workshop-card { text-align: left; border: 1px solid var(--line); border-left: 5px solid var(--workshop-color); background: white; border-radius: 12px; padding: 12px; display: grid; gap: 4px; }
 .workshop-card span { color: var(--muted); font-size: 12px; }
-.add-workshop-card { --workshop-color: var(--accent); border-style: dashed; }
+.workshop-action-card { --workshop-color: var(--accent); border-style: dashed; }
+.workshop-action-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.workshop-delete-select { min-width: 150px; flex: 1; }
 .map-panel { min-height: 0; display: grid; grid-template-rows: auto 1fr; gap: 10px; }
 .map-toolbar { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .search-field { width: 260px; }
@@ -115,9 +117,7 @@ button { font: inherit; cursor: pointer; }
 .new-marker-dot.blue { background: #0000ff; }
 .new-marker-drag small { grid-column: 2; color: var(--muted); }
 .station-action-panel { display: grid; gap: 8px; margin-bottom: 12px; }
-.station-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: stretch; }
 .station-action-card { min-height: 64px; padding: 10px; }
-.station-delete-button.el-button { width: 100%; height: auto; min-height: 64px; margin-left: 0; white-space: normal; }
 .marker-form { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
 .marker-type-group { width: 100%; margin-bottom: 8px; }
 .marker-hotspot { background: var(--marker-color, #ff0000); }

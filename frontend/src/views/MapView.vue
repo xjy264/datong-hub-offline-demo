@@ -20,10 +20,17 @@
           <strong>{{ workshop.name }}</strong>
           <span>{{ workshopStats(workshop.id).total }} 站 · {{ workshopStats(workshop.id).markers }} 组件</span>
         </button>
-        <button class="workshop-card add-workshop-card" @click="createWorkshop">
-          <strong>新增车间</strong>
-          <span>添加一个新的车间分组</span>
-        </button>
+        <div class="workshop-card workshop-action-card">
+          <strong>车间管理</strong>
+          <span>新增车间，或删除没有车站的车间</span>
+          <div class="workshop-action-controls">
+            <el-button type="primary" @click="createWorkshop">新增车间</el-button>
+            <el-select v-model="deleteWorkshopId" class="workshop-delete-select" placeholder="选择车间">
+              <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
+            </el-select>
+            <el-button type="danger" plain :disabled="deleteWorkshopId == null" @click="deleteWorkshop">删除车间</el-button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -103,18 +110,15 @@
         <aside class="station-sidebar">
           <div v-if="editMode" class="station-action-panel">
             <div class="eyebrow">车站操作</div>
-            <div class="station-actions">
-              <button type="button" class="new-marker-drag station-action-card" draggable="true" @dragstart="startNewMarkerDrag">
-                <span class="new-marker-preview">
-                  <span class="new-marker-dot red"></span>
-                  <span class="new-marker-dot blue"></span>
-                </span>
-                <strong>新增车站按钮</strong>
-                <small>拖到 PDF 上</small>
-              </button>
-              <el-button class="station-delete-button" type="danger" plain :disabled="!selectedMarker" @click="deleteSelectedMarker(true)">删除车站按钮</el-button>
-            </div>
-            <p class="palette-hint">删除只移除当前地图按钮，不删除车站资料、目录和图片。</p>
+            <button type="button" class="new-marker-drag station-action-card" draggable="true" @dragstart="startNewMarkerDrag">
+              <span class="new-marker-preview">
+                <span class="new-marker-dot red"></span>
+                <span class="new-marker-dot blue"></span>
+              </span>
+              <strong>新增车站按钮</strong>
+              <small>拖到 PDF 上</small>
+            </button>
+            <p class="palette-hint">拖到地图后填写车站名称和所属车间。</p>
           </div>
 
           <div v-if="editMode && (selectedMarker || draftMarker)" class="marker-form">
@@ -139,7 +143,7 @@
               </el-select>
               <div class="button-row" style="margin-top: 8px">
                 <el-button type="primary" :disabled="!selectedMarkerStationId" @click="saveSelectedMarker">保存按钮</el-button>
-                <el-button type="danger" plain @click="deleteSelectedMarker(true)">删除按钮</el-button>
+                <el-button type="danger" plain @click="deleteSelectedMarker(true)">删除地图按钮</el-button>
               </div>
             </template>
           </div>
@@ -215,6 +219,7 @@ const selectedMarkerStationId = ref('')
 const selectedMarkerType = ref<'red' | 'blue'>('red')
 const draftStationName = ref('')
 const draftStationWorkshopId = ref<number | null>(null)
+const deleteWorkshopId = ref<number | null>(null)
 const selectedSidebarStationId = ref('')
 const savingSidebarStation = ref(false)
 const sidebarForm = reactive<{ name: string; workshopId: number | null }>({ name: '', workshopId: null })
@@ -363,6 +368,25 @@ async function createWorkshop() {
   router.push(workshopPath(workshop))
 }
 
+async function deleteWorkshop() {
+  const workshop = workshops.value.find((item) => item.id === deleteWorkshopId.value)
+  if (!workshop) {
+    ElMessage.warning('请选择要删除的车间')
+    return
+  }
+  const confirmed = await ElMessageBox.confirm(`确定删除“${workshop.name}”？只有没有车站的车间可以删除。`, '删除车间', {
+    confirmButtonText: '删除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => true).catch(() => false)
+  if (!confirmed) return
+  await map.deleteWorkshop(workshop.id)
+  if (workshopFilter.value === workshop.id) workshopFilter.value = 'all'
+  if (draftStationWorkshopId.value === workshop.id) draftStationWorkshopId.value = null
+  deleteWorkshopId.value = null
+  ElMessage.success('已删除车间')
+}
+
 async function saveSidebarStation() {
   if (!selectedSidebarStation.value) return
   const name = sidebarForm.name.trim()
@@ -475,7 +499,7 @@ async function deleteSelectedMarker(confirmDelete = false) {
   }
   if (!currentMap.value || !selectedMarker.value) return
   if (confirmDelete) {
-    const confirmed = await ElMessageBox.confirm('只删除当前地图按钮，不删除车站资料、目录和图片。', '删除车站按钮', {
+    const confirmed = await ElMessageBox.confirm('只删除当前地图按钮，不删除车站资料、目录和图片。', '删除地图按钮', {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
       type: 'warning'
@@ -488,7 +512,7 @@ async function deleteSelectedMarker(confirmDelete = false) {
   selectedMarkerId.value = ''
   selectedMarkerStationId.value = ''
   ensureSidebarSelection()
-  ElMessage.success('已删除车站按钮')
+  ElMessage.success('已删除地图按钮')
 }
 
 function clearDraftMarker() {

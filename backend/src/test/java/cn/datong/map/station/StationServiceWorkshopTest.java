@@ -129,6 +129,22 @@ class StationServiceWorkshopTest {
     }
 
     @Test
+    void deletesWorkshopWithoutStations() {
+        WorkshopView created = workshops.createWorkshop("临时车间");
+
+        workshops.deleteWorkshop(created.id());
+
+        assertThat(workshops.listWorkshops()).extracting(WorkshopView::id).doesNotContain(created.id());
+    }
+
+    @Test
+    void rejectsDeletingWorkshopWithStations() {
+        assertThatThrownBy(() -> workshops.deleteWorkshop(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("车间下还有车站，不能删除");
+    }
+
+    @Test
     void rejectsBlankWorkshopName() {
         assertThatThrownBy(() -> workshops.renameWorkshop(1L, "  "))
                 .isInstanceOf(BusinessException.class)

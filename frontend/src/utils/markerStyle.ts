@@ -1,5 +1,5 @@
-export const DEFAULT_MARKER_SIZE = 4
-const LEGACY_MARKER_SIZE = 4.4
+export const DEFAULT_MARKER_SIZE = 3.6
+const LEGACY_MARKER_SIZES = [4, 4.4]
 
 type MarkerStyleTarget = {
   x: number
@@ -10,7 +10,7 @@ type MarkerStyleTarget = {
 
 export function renderMarkerSize(size?: number) {
   if (!size) return DEFAULT_MARKER_SIZE
-  return Math.abs(size - LEGACY_MARKER_SIZE) < 0.01 ? DEFAULT_MARKER_SIZE : size
+  return LEGACY_MARKER_SIZES.some((legacySize) => Math.abs(size - legacySize) < 0.01) ? DEFAULT_MARKER_SIZE : size
 }
 
 export function markerColor(color?: string) {

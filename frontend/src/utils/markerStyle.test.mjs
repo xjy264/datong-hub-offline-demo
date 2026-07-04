@@ -3,20 +3,24 @@ import assert from 'node:assert/strict'
 import { DEFAULT_MARKER_SIZE, markerCssVars } from './markerStyle.ts'
 
 test('new station marker uses the slightly smaller round button size', () => {
-  assert.equal(DEFAULT_MARKER_SIZE, 4)
+  assert.equal(DEFAULT_MARKER_SIZE, 3.6)
 })
 
 test('marker css vars keep coordinates, small default size, and default red color', () => {
   assert.deepEqual(markerCssVars({ x: 10, y: 20 }), {
     '--x': '10px',
     '--y': '20px',
-    '--size': '4px',
+    '--size': '3.6px',
     '--marker-color': '#ff0000'
   })
 })
 
-test('marker css vars renders legacy 4.4px stations at the smaller 4px size', () => {
-  assert.equal(markerCssVars({ x: 10, y: 20, size: 4.4 })['--size'], '4px')
+test('marker css vars renders legacy 4.4px stations at the smaller 3.6px size', () => {
+  assert.equal(markerCssVars({ x: 10, y: 20, size: 4.4 })['--size'], '3.6px')
+})
+
+test('marker css vars renders previous 4px stations at the smaller 3.6px size', () => {
+  assert.equal(markerCssVars({ x: 10, y: 20, size: 4 })['--size'], '3.6px')
 })
 
 test('marker css vars preserves explicitly custom sizes', () => {

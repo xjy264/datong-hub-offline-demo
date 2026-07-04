@@ -61,6 +61,12 @@ public class StationController {
         return ApiResponse.success();
     }
 
+    @DeleteMapping("/workshops/{workshopId}")
+    public ApiResponse<Void> deleteWorkshop(@PathVariable Long workshopId) {
+        workshops.deleteWorkshop(workshopId);
+        return ApiResponse.success();
+    }
+
     @PutMapping("/stations/{stationId}/profile")
     public ApiResponse<Void> updateProfile(@PathVariable String stationId, @RequestBody ProfileRequest request) {
         service.updateProfile(stationId, request);
