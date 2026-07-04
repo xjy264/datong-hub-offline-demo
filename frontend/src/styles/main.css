@@ -55,7 +55,6 @@ button { font: inherit; cursor: pointer; }
 .workshop-card span { color: var(--muted); font-size: 12px; }
 .workshop-action-card { --workshop-color: var(--accent); border-style: dashed; }
 .workshop-action-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.workshop-delete-select { min-width: 150px; flex: 1; }
 .map-panel { min-height: 0; display: grid; grid-template-rows: auto 1fr; gap: 10px; }
 .map-toolbar { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .search-field { width: 260px; }

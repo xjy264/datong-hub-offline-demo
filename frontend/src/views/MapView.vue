@@ -25,10 +25,7 @@
           <span>新增车间，或删除没有车站的车间</span>
           <div class="workshop-action-controls">
             <el-button type="primary" @click="createWorkshop">新增车间</el-button>
-            <el-select v-model="deleteWorkshopId" class="workshop-delete-select" placeholder="选择车间">
-              <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
-            </el-select>
-            <el-button type="danger" plain :disabled="deleteWorkshopId == null" @click="deleteWorkshop">删除车间</el-button>
+            <el-button type="danger" plain @click="openDeleteWorkshopDialog">删除车间</el-button>
           </div>
         </div>
       </div>
@@ -185,6 +182,21 @@
         <img v-for="image in firstImages(hoverMarker.station)" :key="image.id" :src="image.url" alt="" />
       </div>
     </div>
+
+    <el-dialog v-model="deleteWorkshopDialogVisible" title="删除车间" width="420px">
+      <el-form label-position="top">
+        <el-form-item label="选择要删除的车间">
+          <el-select v-model="deleteWorkshopId" placeholder="请选择车间" style="width: 100%">
+            <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <p class="palette-hint">只有没有车站的车间可以删除。</p>
+      <template #footer>
+        <el-button @click="deleteWorkshopDialogVisible = false">取消</el-button>
+        <el-button type="danger" :disabled="deleteWorkshopId == null" @click="deleteWorkshop">确认删除</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -219,6 +231,7 @@ const selectedMarkerStationId = ref('')
 const selectedMarkerType = ref<'red' | 'blue'>('red')
 const draftStationName = ref('')
 const draftStationWorkshopId = ref<number | null>(null)
+const deleteWorkshopDialogVisible = ref(false)
 const deleteWorkshopId = ref<number | null>(null)
 const selectedSidebarStationId = ref('')
 const savingSidebarStation = ref(false)
@@ -368,22 +381,22 @@ async function createWorkshop() {
   router.push(workshopPath(workshop))
 }
 
+function openDeleteWorkshopDialog() {
+  deleteWorkshopId.value = null
+  deleteWorkshopDialogVisible.value = true
+}
+
 async function deleteWorkshop() {
   const workshop = workshops.value.find((item) => item.id === deleteWorkshopId.value)
   if (!workshop) {
     ElMessage.warning('请选择要删除的车间')
     return
   }
-  const confirmed = await ElMessageBox.confirm(`确定删除“${workshop.name}”？只有没有车站的车间可以删除。`, '删除车间', {
-    confirmButtonText: '删除',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(() => true).catch(() => false)
-  if (!confirmed) return
   await map.deleteWorkshop(workshop.id)
   if (workshopFilter.value === workshop.id) workshopFilter.value = 'all'
   if (draftStationWorkshopId.value === workshop.id) draftStationWorkshopId.value = null
   deleteWorkshopId.value = null
+  deleteWorkshopDialogVisible.value = false
   ElMessage.success('已删除车间')
 }
 
