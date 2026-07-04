@@ -94,6 +94,7 @@ services:
       retries: 10
 
   frontend:
+    image: datong-map-frontend
     build:
       context: ../frontend
     container_name: datong-map-frontend
@@ -103,6 +104,22 @@ services:
         condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-8012}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  frontend-legacy:
+    image: datong-map-frontend
+    container_name: datong-map-frontend-legacy
+    restart: unless-stopped
+    profiles: ["legacy-port"]
+    depends_on:
+      frontend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_LEGACY_PORT:-8012}:80"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
       interval: 15s
