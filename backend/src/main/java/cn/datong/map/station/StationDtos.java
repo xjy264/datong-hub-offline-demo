@@ -30,6 +30,9 @@ public final class StationDtos {
     public record ProfileRequest(String name, String notes, Long workshopId) {
     }
 
+    public record CreateStationRequest(String name, String color, Long workshopId, double x, double y, double size) {
+    }
+
     public record FolderRequest(String parentId, String name) {
     }
 

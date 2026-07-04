@@ -55,12 +55,12 @@
           </el-radio-group>
         </div>
         <div class="tool-row">
+          <el-button @click="router.push('/maps')">返回地图选择</el-button>
           <el-button @click="zoomAt(1 / 1.18)">缩小</el-button>
           <el-button @click="zoomAt(1.18)">放大</el-button>
           <el-button @click="fitToViewport">适应整图</el-button>
           <el-button @click="openOriginalPdf">查看原始 PDF</el-button>
           <template v-if="auth.user?.isSuperAdmin">
-            <el-button type="primary" @click="startAddMarkerMode">新增车站按钮</el-button>
             <el-button :type="editMode ? 'primary' : 'default'" @click="toggleEdit">{{ editMode ? '完成编辑' : '编辑布局' }}</el-button>
           </template>
         </div>
@@ -69,7 +69,7 @@
       <div class="map-editor-layout" :class="{ editing: editMode }">
         <aside v-if="editMode" class="marker-palette">
           <h3 class="panel-title">新增按钮</h3>
-          <p class="palette-hint">把红/蓝站点按钮拖到 PDF 上，再选择它绑定的车站。</p>
+          <p class="palette-hint">把红/蓝站点按钮拖到 PDF 上，再填写车站名称和所属车间。</p>
           <button type="button" class="new-marker-drag" draggable="true" @dragstart="startNewMarkerDrag">
             <span class="new-marker-preview">
               <span class="new-marker-dot red"></span>
@@ -84,13 +84,25 @@
               <el-radio-button label="red">车站</el-radio-button>
               <el-radio-button label="blue">已撤站</el-radio-button>
             </el-radio-group>
-            <el-select v-model="selectedMarkerStationId" filterable placeholder="请选择车站" style="width: 100%">
-              <el-option v-for="station in markerTypeStations" :key="station.id" :label="station.name" :value="station.id" />
-            </el-select>
-            <div class="button-row" style="margin-top: 8px">
-              <el-button type="primary" :disabled="!selectedMarkerStationId" @click="saveSelectedMarker">{{ draftMarker ? '保存新增按钮' : '保存按钮' }}</el-button>
-              <el-button type="danger" plain @click="deleteSelectedMarker">{{ draftMarker ? '取消' : '删除按钮' }}</el-button>
-            </div>
+            <template v-if="draftMarker">
+              <el-input v-model="draftStationName" placeholder="请输入车站名称" maxlength="128" />
+              <el-select v-model="draftStationWorkshopId" placeholder="请选择所属车间" style="width: 100%; margin-top: 8px">
+                <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
+              </el-select>
+              <div class="button-row" style="margin-top: 8px">
+                <el-button type="primary" :disabled="!draftStationName.trim() || draftStationWorkshopId == null" @click="saveSelectedMarker">保存新增按钮</el-button>
+                <el-button type="danger" plain @click="deleteSelectedMarker">取消</el-button>
+              </div>
+            </template>
+            <template v-else>
+              <el-select v-model="selectedMarkerStationId" filterable placeholder="请选择车站" style="width: 100%">
+                <el-option v-for="station in markerTypeStations" :key="station.id" :label="station.name" :value="station.id" />
+              </el-select>
+              <div class="button-row" style="margin-top: 8px">
+                <el-button type="primary" :disabled="!selectedMarkerStationId" @click="saveSelectedMarker">保存按钮</el-button>
+                <el-button type="danger" plain @click="deleteSelectedMarker">删除按钮</el-button>
+              </div>
+            </template>
           </div>
         </aside>
 
@@ -201,6 +213,8 @@ const editMode = ref(false)
 const selectedMarkerId = ref('')
 const selectedMarkerStationId = ref('')
 const selectedMarkerType = ref<'red' | 'blue'>('red')
+const draftStationName = ref('')
+const draftStationWorkshopId = ref<number | null>(null)
 const selectedSidebarStationId = ref('')
 const savingSidebarStation = ref(false)
 const sidebarForm = reactive<{ name: string; workshopId: number | null }>({ name: '', workshopId: null })
@@ -228,7 +242,7 @@ watch(() => map.currentMap?.id, async (id) => {
   if (id) selectedMapId.value = id
   selectedMarkerId.value = ''
   selectedSidebarStationId.value = ''
-  draftMarker.value = null
+  clearDraftMarker()
   ensureSidebarSelection()
   await nextTick()
   fitToViewport()
@@ -376,13 +390,7 @@ async function saveSidebarStation() {
 function toggleEdit() {
   editMode.value = !editMode.value
   selectedMarkerId.value = ''
-  draftMarker.value = null
-}
-
-function startAddMarkerMode() {
-  editMode.value = true
-  selectedMarkerId.value = ''
-  draftMarker.value = null
+  clearDraftMarker()
 }
 
 function startNewMarkerDrag(event: DragEvent) {
@@ -396,6 +404,8 @@ function dropNewMarker(event: DragEvent) {
   const point = localPoint(event.clientX, event.clientY)
   const draft = createMarkerDraft(point)
   draftMarker.value = draft.marker
+  draftStationName.value = ''
+  draftStationWorkshopId.value = null
   selectedMarkerId.value = ''
   selectedMarkerStationId.value = draft.stationId
   selectedMarkerType.value = 'red'
@@ -404,7 +414,7 @@ function dropNewMarker(event: DragEvent) {
 function clickMarker(marker: MapMarker) {
   const sidebarStationId = nextSidebarStationId(editMode.value, selectedSidebarStationId.value, marker.station.id)
   if (editMode.value) {
-    draftMarker.value = null
+    clearDraftMarker()
     selectedMarkerId.value = marker.id
     selectedMarkerStationId.value = marker.station.id
     selectedMarkerType.value = stationType(marker.station)
@@ -415,7 +425,7 @@ function clickMarker(marker: MapMarker) {
 
 function startMarkerDrag(marker: MapMarker, event: PointerEvent) {
   if (!editMode.value) return
-  draftMarker.value = null
+  clearDraftMarker()
   selectedMarkerId.value = marker.id
   selectedMarkerStationId.value = marker.station.id
   selectedMarkerType.value = stationType(marker.station)
@@ -425,22 +435,34 @@ function startMarkerDrag(marker: MapMarker, event: PointerEvent) {
 
 async function saveSelectedMarker() {
   if (!currentMap.value) return
+  if (draftMarker.value) {
+    const name = draftStationName.value.trim()
+    if (!name) {
+      ElMessage.warning('请输入车站名称')
+      return
+    }
+    if (draftStationWorkshopId.value == null) {
+      ElMessage.warning('请选择所属车间')
+      return
+    }
+    const mapId = currentMap.value.id
+    const draft = draftMarker.value
+    const station = await map.createStation({ name, color: selectedMarkerType.value, workshopId: draftStationWorkshopId.value, x: draft.x, y: draft.y, size: draft.size })
+    await map.createMarker(mapId, {
+      stationId: station.id,
+      x: draft.x,
+      y: draft.y,
+      size: stationMarkerSize(station)
+    })
+    clearDraftMarker()
+    ElMessage.success('已新增车站按钮')
+    return
+  }
   if (!selectedMarkerStationId.value) {
     ElMessage.warning('请选择按钮对应的车站')
     return
   }
   const stationSize = stationMarkerSize(selectedMarkerStation.value)
-  if (draftMarker.value) {
-    await map.createMarker(currentMap.value.id, {
-      stationId: selectedMarkerStationId.value,
-      x: draftMarker.value.x,
-      y: draftMarker.value.y,
-      size: stationSize
-    })
-    draftMarker.value = null
-    ElMessage.success('已新增按钮')
-    return
-  }
   if (!selectedMarker.value) return
   await map.updateMarker(currentMap.value.id, selectedMarker.value.id, {
     stationId: selectedMarkerStationId.value,
@@ -453,12 +475,18 @@ async function saveSelectedMarker() {
 
 async function deleteSelectedMarker() {
   if (draftMarker.value) {
-    draftMarker.value = null
+    clearDraftMarker()
     return
   }
   if (!currentMap.value || !selectedMarker.value) return
   await map.deleteMarker(currentMap.value.id, selectedMarker.value.id)
   selectedMarkerId.value = ''
+}
+
+function clearDraftMarker() {
+  draftMarker.value = null
+  draftStationName.value = ''
+  draftStationWorkshopId.value = null
 }
 
 function fitToViewport() {

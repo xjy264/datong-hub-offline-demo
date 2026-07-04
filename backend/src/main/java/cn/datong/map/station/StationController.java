@@ -3,6 +3,7 @@ package cn.datong.map.station;
 import cn.datong.map.common.ApiResponse;
 import cn.datong.map.station.StationDtos.FolderRequest;
 import cn.datong.map.station.StationDtos.FolderView;
+import cn.datong.map.station.StationDtos.CreateStationRequest;
 import cn.datong.map.station.StationDtos.ProfileRequest;
 import cn.datong.map.station.StationDtos.RenameFolderRequest;
 import cn.datong.map.station.StationDtos.StationImageView;
@@ -64,6 +65,11 @@ public class StationController {
     public ApiResponse<Void> updateProfile(@PathVariable String stationId, @RequestBody ProfileRequest request) {
         service.updateProfile(stationId, request);
         return ApiResponse.success();
+    }
+
+    @PostMapping("/stations")
+    public ApiResponse<StationView> createStation(@RequestBody CreateStationRequest request) {
+        return ApiResponse.success(service.createStation(request));
     }
 
     @PostMapping("/stations/{stationId}/folders")

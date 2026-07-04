@@ -1,6 +1,7 @@
 package cn.datong.map.station;
 
 import cn.datong.map.common.BusinessException;
+import cn.datong.map.station.StationDtos.CreateStationRequest;
 import cn.datong.map.station.StationDtos.FolderRequest;
 import cn.datong.map.station.StationDtos.FolderView;
 import cn.datong.map.station.StationDtos.Position;
@@ -95,6 +96,27 @@ public class StationService {
                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON DUPLICATE KEY UPDATE name = VALUES(name), notes = VALUES(notes), workshop_id = VALUES(workshop_id), updated_at = CURRENT_TIMESTAMP
                 """, stationId, trim(request.name()), trim(request.notes()), workshopCode);
+    }
+
+    @Transactional
+    public StationView createStation(CreateStationRequest request) {
+        if (request == null) throw new BusinessException("车站名称不能为空");
+        String name = trim(request.name());
+        if (name.isBlank()) throw new BusinessException("车站名称不能为空");
+        if (request.workshopId() == null) throw new BusinessException("请选择所属车间");
+        String workshopCode = workshops.storageCode(request.workshopId());
+        String color = "blue".equals(request.color()) ? "blue" : "red";
+        String type = "blue".equals(color) ? "已撤站" : "车站";
+        String id = "station-" + UUID.randomUUID().toString().replace("-", "").substring(0, 18);
+        double size = request.size() > 0 ? request.size() : 4.4;
+        jdbcTemplate.update("""
+                INSERT INTO map_station (id, name, auto_name, type, color, line_name, mileage, position_x, position_y, size, default_workshop_id)
+                VALUES (?, ?, ?, ?, ?, '', '', ?, ?, ?, ?)
+                """, id, name, name, type, color, request.x(), request.y(), size, workshopCode);
+        return listStations().stream()
+                .filter(station -> station.id().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("车站不存在"));
     }
 
     @Transactional

@@ -1,6 +1,7 @@
 package cn.datong.map.station;
 
 import cn.datong.map.common.BusinessException;
+import cn.datong.map.station.StationDtos.CreateStationRequest;
 import cn.datong.map.station.StationDtos.ProfileRequest;
 import cn.datong.map.station.StationDtos.WorkshopView;
 import cn.datong.map.storage.ImageStorage;
@@ -71,6 +72,26 @@ class StationServiceWorkshopTest {
         assertThatThrownBy(() -> stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 99L)))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("车间不存在");
+    }
+
+    @Test
+    void createsStationFromUserEnteredNameAndSelectedWorkshop() {
+        StationDtos.StationView created = stations.createStation(new CreateStationRequest("  新站  ", "blue", 2L, 12.5, 34.5, 4.4));
+
+        assertThat(created.name()).isEqualTo("新站");
+        assertThat(created.autoName()).isEqualTo("新站");
+        assertThat(created.color()).isEqualTo("blue");
+        assertThat(created.type()).isEqualTo("已撤站");
+        assertThat(created.workshopId()).isEqualTo(2L);
+        assertThat(created.position().x()).isEqualTo(12.5);
+        assertThat(created.position().y()).isEqualTo(34.5);
+    }
+
+    @Test
+    void rejectsBlankStationNameWhenCreatingStation() {
+        assertThatThrownBy(() -> stations.createStation(new CreateStationRequest("  ", "red", 1L, 1, 2, 4.4)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("车站名称不能为空");
     }
 
 

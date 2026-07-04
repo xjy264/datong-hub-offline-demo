@@ -13,7 +13,6 @@
           <p class="subline">名称、备注、目录保存在 MySQL，图片保存在 MinIO。</p>
         </div>
         <div class="button-row">
-          <el-button @click="copyStationInfo">复制信息</el-button>
           <el-button @click="goWorkshop">返回车间</el-button>
         </div>
       </div>
@@ -48,16 +47,28 @@
             <h3 class="panel-title">目录管理</h3>
             <el-button type="primary" @click="addRootFolder">添加一级目录</el-button>
           </div>
-          <div class="folder-tree">
-            <div v-for="item in flatFolders" :key="item.folder.id" class="folder-row" :class="{ selected: item.folder.id === selectedFolderId }" :style="{ '--depth': item.depth - 1 }" @dblclick="selectedFolderId = item.folder.id">
-              <el-button size="small" @click="selectedFolderId = item.folder.id">{{ item.depth }}</el-button>
-              <el-input :model-value="item.folder.name" @change="(value: string) => renameFolder(item.folder.id, value)" />
-              <span class="folder-count">{{ countImages([item.folder]) }}图{{ item.folder.children.length ? ` · ${item.folder.children.length}级` : '' }}</span>
-              <el-button size="small" :disabled="item.depth >= 3 || item.folder.images.length > 0" @click="addChildFolder(item.folder.id)">下级</el-button>
-              <el-button size="small" type="danger" plain :disabled="item.folder.children.length > 0 || item.folder.images.length > 0" @click="deleteFolder(item.folder.id)">删除</el-button>
-            </div>
-            <div v-if="!flatFolders.length" class="empty">请添加目录</div>
-          </div>
+          <el-tree
+            v-if="folderTree.length"
+            class="folder-tree"
+            :data="folderTree"
+            node-key="id"
+            default-expand-all
+            highlight-current
+            :current-node-key="selectedFolderId"
+            :expand-on-click-node="false"
+            @node-click="selectFolderNode"
+          >
+            <template #default="{ data }">
+              <div class="folder-node-row" :class="{ selected: data.id === selectedFolderId }">
+                <span class="folder-number">{{ data.number }}</span>
+                <el-input :ref="(el: unknown) => setFolderInputRef(data.id, el)" :model-value="data.folder.name" @change="(value: string) => renameFolder(data.folder.id, value)" />
+                <span class="folder-count">{{ countImages([data.folder]) }}图{{ data.folder.children.length ? ` · ${data.folder.children.length}级` : '' }}</span>
+                <el-button size="small" :disabled="folderDepth(data) >= 3 || data.folder.images.length > 0" @click.stop="addChildFolder(data.folder.id)">下级</el-button>
+                <el-button size="small" type="danger" plain :disabled="data.folder.children.length > 0 || data.folder.images.length > 0" @click.stop="deleteFolder(data.folder.id)">删除</el-button>
+              </div>
+            </template>
+          </el-tree>
+          <div v-else class="empty">请添加目录</div>
         </section>
 
         <section class="panel image-panel">
@@ -71,11 +82,11 @@
             <input ref="imageInput" class="file-input" type="file" multiple accept="image/*" @change="uploadImages" />
           </div>
           <div class="image-grid">
-            <div v-for="image in selectedFolder?.images || []" :key="image.id" class="photo">
-              <img :src="image.url" :alt="image.name" />
+            <div v-for="image in selectedFolderImages" :key="image.id" class="photo">
+              <el-image :src="image.url" :alt="image.name" fit="cover" :preview-src-list="selectedFolderImages.map((item) => item.url)" :initial-index="imageIndex(image.id)" preview-teleported />
               <button title="删除图片" @click="deleteImage(image.id)">×</button>
             </div>
-            <div v-if="!(selectedFolder?.images || []).length" class="empty">{{ selectedFolder ? '暂无图片' : '请选择目录' }}</div>
+            <div v-if="!selectedFolderImages.length" class="empty">{{ selectedFolder ? '暂无图片' : '请选择目录' }}</div>
           </div>
         </section>
       </div>
@@ -86,10 +97,11 @@
 
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
 import type { StationFolder } from '../types'
+import { findNumberedFolderNode, numberedFolderTree, type NumberedFolderNode } from '../utils/folderTree'
 import { workshopName as resolveWorkshopName } from '../utils/workshopRoute'
 
 const route = useRoute()
@@ -97,6 +109,7 @@ const router = useRouter()
 const map = useMapStore()
 const imageInput = ref<HTMLInputElement | null>(null)
 const selectedFolderId = ref('')
+const folderInputs = new Map<string, { focus: () => void }>()
 const form = reactive<{ name: string; notes: string; workshopId: number | null }>({ name: '', notes: '', workshopId: null })
 const station = computed(() => map.stationById(String(route.params.id)))
 const workshops = computed(() => map.workshops)
@@ -116,21 +129,11 @@ function syncForm() {
   if (!selectedFolderId.value && station.value.folders[0]) selectedFolderId.value = station.value.folders[0].id
 }
 
-const flatFolders = computed(() => {
-  const rows: Array<{ folder: StationFolder; depth: number; path: StationFolder[] }> = []
-  const walk = (folders: StationFolder[], depth: number, path: StationFolder[]) => {
-    folders.forEach((folder) => {
-      const nextPath = [...path, folder]
-      rows.push({ folder, depth, path: nextPath })
-      walk(folder.children, depth + 1, nextPath)
-    })
-  }
-  walk(station.value?.folders || [], 1, [])
-  return rows
-})
-const selectedRow = computed(() => flatFolders.value.find((item) => item.folder.id === selectedFolderId.value))
+const folderTree = computed(() => numberedFolderTree(station.value?.folders || []))
+const selectedRow = computed(() => findNumberedFolderNode(folderTree.value, selectedFolderId.value))
 const selectedFolder = computed(() => selectedRow.value?.folder || null)
-const selectedFolderPath = computed(() => selectedRow.value?.path.map((item) => item.name).join(' / ') || '')
+const selectedFolderPath = computed(() => selectedRow.value?.pathText || '')
+const selectedFolderImages = computed(() => selectedFolder.value?.images || [])
 
 function countImages(folders: StationFolder[]): number {
   return folders.reduce((sum, folder) => sum + folder.images.length + countImages(folder.children), 0)
@@ -156,12 +159,14 @@ function goWorkshop() {
 
 async function addRootFolder() {
   if (!station.value) return
-  await map.addFolder(station.value.id, null)
+  const folder = await map.addFolder(station.value.id, null)
+  await selectAndFocusFolder(folder.id)
 }
 
 async function addChildFolder(parentId: string) {
   if (!station.value) return
-  await map.addFolder(station.value.id, parentId)
+  const folder = await map.addFolder(station.value.id, parentId)
+  await selectAndFocusFolder(folder.id)
 }
 
 async function renameFolder(folderId: string, name: string) {
@@ -185,17 +190,27 @@ async function deleteImage(imageId: string) {
   await map.deleteImage(imageId)
 }
 
-function copyStationInfo() {
-  if (!station.value) return
-  const text = [
-    `站点：${station.value.name}`,
-    `车间：${workshopName(form.workshopId)}`,
-    `类型：${station.value.color === 'blue' ? '已撤站' : '车站'}`,
-    `里程：${station.value.mileage || '未匹配'}`,
-    `坐标：${station.value.position.x.toFixed(1)}, ${station.value.position.y.toFixed(1)}`,
-    `图片：${countImages(station.value.folders)} 张`,
-    `备注：${form.notes || '无'}`
-  ].join('\n')
-  navigator.clipboard?.writeText(text).then(() => ElMessage.success('已复制'))
+function selectFolderNode(data: NumberedFolderNode) {
+  selectedFolderId.value = data.id
+}
+
+function folderDepth(data: NumberedFolderNode) {
+  return data.number.split('.').length
+}
+
+function setFolderInputRef(id: string, el: unknown) {
+  const input = el as { focus?: () => void } | null
+  if (input?.focus) folderInputs.set(id, { focus: input.focus.bind(input) })
+  else folderInputs.delete(id)
+}
+
+async function selectAndFocusFolder(folderId: string) {
+  selectedFolderId.value = folderId
+  await nextTick()
+  folderInputs.get(folderId)?.focus()
+}
+
+function imageIndex(imageId: string) {
+  return Math.max(0, selectedFolderImages.value.findIndex((image) => image.id === imageId))
 }
 </script>

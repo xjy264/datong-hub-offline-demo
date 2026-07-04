@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { apiDelete, apiGet, apiPost, apiPut } from '../api/http'
-import type { MapDetail, MapMarker, MapSummary, Station, StationImage, Workshop } from '../types'
+import type { MapDetail, MapMarker, MapSummary, Station, StationFolder, StationImage, Workshop } from '../types'
 
 export const useMapStore = defineStore('map', {
   state: () => ({
@@ -79,6 +79,12 @@ export const useMapStore = defineStore('map', {
       if (this.currentMap) await this.loadMap(this.currentMap.id)
       else await this.load(true)
     },
+    async createStation(body: { name: string; color: 'red' | 'blue'; workshopId: number; x: number; y: number; size: number }) {
+      const station = await apiPost<Station>('/stations', body)
+      if (this.currentMap) await this.loadMap(this.currentMap.id)
+      else await this.load(true)
+      return station
+    },
     async renameWorkshop(workshopId: number, name: string) {
       await apiPut(`/workshops/${workshopId}`, { name })
       if (this.currentMap) await this.loadMap(this.currentMap.id)
@@ -91,9 +97,10 @@ export const useMapStore = defineStore('map', {
       return workshop
     },
     async addFolder(stationId: string, parentId: string | null) {
-      await apiPost(`/stations/${stationId}/folders`, { parentId, name: '新建目录' })
+      const folder = await apiPost<StationFolder>(`/stations/${stationId}/folders`, { parentId, name: '新建目录' })
       if (this.currentMap) await this.loadMap(this.currentMap.id)
       else await this.load(true)
+      return folder
     },
     async renameFolder(folderId: string, name: string) {
       await apiPut(`/folders/${folderId}`, { name })
