@@ -64,7 +64,7 @@ button { font: inherit; cursor: pointer; }
 .viewport { min-width: 0; min-height: 420px; height: 100%; overflow: hidden; border-radius: 10px; background: #dce4ea; position: relative; touch-action: none; }
 .map-canvas { width: 1191px; height: 842px; transform-origin: 0 0; position: absolute; left: 0; top: 0; }
 .base-map { width: 1191px; height: 842px; display: block; user-select: none; pointer-events: none; }
-.hotspot { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); transform: translate(-50%, -50%); border-radius: 999px; border: 0; background: var(--marker-color, #ff0000); padding: 0; }
+.hotspot { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); min-width: 0; min-height: 0; line-height: 0; appearance: none; box-sizing: border-box; transform: translate(-50%, -50%); border-radius: 50%; border: 0; background: var(--marker-color, #ff0000); padding: 0; }
 .hotspot:hover { background: var(--marker-color, #ff0000); outline: 2px solid rgba(17,24,39,.35); outline-offset: 2px; }
 .hotspot.hidden { opacity: .08; pointer-events: none; }
 .hover-card { position: fixed; width: 240px; background: white; border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 10px; padding: 10px; z-index: 20; pointer-events: none; }
@@ -106,12 +106,7 @@ button { font: inherit; cursor: pointer; }
   .workshop-strip, .summary-grid { grid-template-columns: repeat(2, 1fr); }
 }
 .map-editor-layout { min-height: 0; height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 10px; }
-.map-editor-layout.editing { grid-template-columns: 300px minmax(0, 1fr) 320px; }
-.marker-palette { min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-soft); padding: 10px; display: grid; grid-template-rows: auto auto auto 1fr; gap: 10px; align-content: start; }
 .palette-hint { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
-.palette-list { min-height: 0; overflow: auto; display: grid; gap: 8px; }
-.palette-item { border: 1px solid var(--line); border-radius: 8px; background: white; padding: 8px; cursor: grab; display: grid; gap: 2px; }
-.palette-item span { color: var(--muted); font-size: 12px; }
 .new-marker-drag { width: 100%; border: 1px dashed #111827; border-radius: 10px; background: white; padding: 12px; cursor: grab; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; user-select: none; text-align: left; color: inherit; }
 .new-marker-drag:active { cursor: grabbing; }
 .new-marker-preview { display: flex; align-items: center; gap: 4px; }
@@ -119,7 +114,11 @@ button { font: inherit; cursor: pointer; }
 .new-marker-dot.red { background: #ff0000; }
 .new-marker-dot.blue { background: #0000ff; }
 .new-marker-drag small { grid-column: 2; color: var(--muted); }
-.marker-form { border-top: 1px solid var(--line); padding-top: 10px; }
+.station-action-panel { display: grid; gap: 8px; margin-bottom: 12px; }
+.station-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: stretch; }
+.station-action-card { min-height: 64px; padding: 10px; }
+.station-delete-button.el-button { width: 100%; height: auto; min-height: 64px; margin-left: 0; white-space: normal; }
+.marker-form { border-top: 1px solid var(--line); padding-top: 10px; margin-bottom: 12px; }
 .marker-type-group { width: 100%; margin-bottom: 8px; }
 .marker-hotspot { background: var(--marker-color, #ff0000); }
 .marker-hotspot:hover { background: var(--marker-color, #ff0000); outline: 2px solid rgba(17,24,39,.35); outline-offset: 2px; }
@@ -135,6 +134,5 @@ button { font: inherit; cursor: pointer; }
 .map-editor-layout.editing .viewport { outline: 2px dashed rgba(15, 118, 110, .35); outline-offset: -6px; }
 @media (max-width: 960px) {
   .map-editor-layout, .map-editor-layout.editing { grid-template-columns: 1fr; }
-  .marker-palette { max-height: 320px; }
   .station-sidebar { max-height: 320px; }
 }

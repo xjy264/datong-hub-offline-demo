@@ -65,45 +65,6 @@
       </div>
 
       <div class="map-editor-layout" :class="{ editing: editMode }">
-        <aside v-if="editMode" class="marker-palette">
-          <h3 class="panel-title">新增按钮</h3>
-          <p class="palette-hint">把红/蓝站点按钮拖到 PDF 上，再填写车站名称和所属车间。</p>
-          <button type="button" class="new-marker-drag" draggable="true" @dragstart="startNewMarkerDrag">
-            <span class="new-marker-preview">
-              <span class="new-marker-dot red"></span>
-              <span class="new-marker-dot blue"></span>
-            </span>
-            <strong>新增车站按钮</strong>
-            <small>红色车站 / 蓝色已撤站</small>
-          </button>
-          <div v-if="selectedMarker || draftMarker" class="marker-form">
-            <h3 class="panel-title">{{ draftMarker ? '新增按钮配置' : '选中按钮配置' }}</h3>
-            <el-radio-group v-model="selectedMarkerType" class="marker-type-group">
-              <el-radio-button label="red">车站</el-radio-button>
-              <el-radio-button label="blue">已撤站</el-radio-button>
-            </el-radio-group>
-            <template v-if="draftMarker">
-              <el-input v-model="draftStationName" placeholder="请输入车站名称" maxlength="128" />
-              <el-select v-model="draftStationWorkshopId" placeholder="请选择所属车间" style="width: 100%; margin-top: 8px">
-                <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
-              </el-select>
-              <div class="button-row" style="margin-top: 8px">
-                <el-button type="primary" :disabled="!draftStationName.trim() || draftStationWorkshopId == null" @click="saveSelectedMarker">保存新增按钮</el-button>
-                <el-button type="danger" plain @click="deleteSelectedMarker">取消</el-button>
-              </div>
-            </template>
-            <template v-else>
-              <el-select v-model="selectedMarkerStationId" filterable placeholder="请选择车站" style="width: 100%">
-                <el-option v-for="station in markerTypeStations" :key="station.id" :label="station.name" :value="station.id" />
-              </el-select>
-              <div class="button-row" style="margin-top: 8px">
-                <el-button type="primary" :disabled="!selectedMarkerStationId" @click="saveSelectedMarker">保存按钮</el-button>
-                <el-button type="danger" plain @click="deleteSelectedMarker">删除按钮</el-button>
-              </div>
-            </template>
-          </div>
-        </aside>
-
         <div
           ref="viewport"
           class="viewport"
@@ -140,6 +101,48 @@
         </div>
 
         <aside class="station-sidebar">
+          <div v-if="editMode" class="station-action-panel">
+            <div class="eyebrow">车站操作</div>
+            <div class="station-actions">
+              <button type="button" class="new-marker-drag station-action-card" draggable="true" @dragstart="startNewMarkerDrag">
+                <span class="new-marker-preview">
+                  <span class="new-marker-dot red"></span>
+                  <span class="new-marker-dot blue"></span>
+                </span>
+                <strong>新增车站按钮</strong>
+                <small>拖到 PDF 上</small>
+              </button>
+              <el-button class="station-delete-button" type="danger" plain :disabled="!selectedMarker" @click="deleteSelectedMarker(true)">删除车站按钮</el-button>
+            </div>
+            <p class="palette-hint">删除只移除当前地图按钮，不删除车站资料、目录和图片。</p>
+          </div>
+
+          <div v-if="editMode && (selectedMarker || draftMarker)" class="marker-form">
+            <h3 class="panel-title">{{ draftMarker ? '新增按钮配置' : '选中按钮配置' }}</h3>
+            <el-radio-group v-model="selectedMarkerType" class="marker-type-group">
+              <el-radio-button label="red">车站</el-radio-button>
+              <el-radio-button label="blue">已撤站</el-radio-button>
+            </el-radio-group>
+            <template v-if="draftMarker">
+              <el-input v-model="draftStationName" placeholder="请输入车站名称" maxlength="128" />
+              <el-select v-model="draftStationWorkshopId" placeholder="请选择所属车间" style="width: 100%; margin-top: 8px">
+                <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
+              </el-select>
+              <div class="button-row" style="margin-top: 8px">
+                <el-button type="primary" :disabled="!draftStationName.trim() || draftStationWorkshopId == null" @click="saveSelectedMarker">保存新增按钮</el-button>
+                <el-button type="danger" plain @click="deleteSelectedMarker()">取消</el-button>
+              </div>
+            </template>
+            <template v-else>
+              <el-select v-model="selectedMarkerStationId" filterable placeholder="请选择车站" style="width: 100%">
+                <el-option v-for="station in markerTypeStations" :key="station.id" :label="station.name" :value="station.id" />
+              </el-select>
+              <div class="button-row" style="margin-top: 8px">
+                <el-button type="primary" :disabled="!selectedMarkerStationId" @click="saveSelectedMarker">保存按钮</el-button>
+                <el-button type="danger" plain @click="deleteSelectedMarker(true)">删除按钮</el-button>
+              </div>
+            </template>
+          </div>
           <template v-if="selectedSidebarStation">
             <div class="eyebrow">当前车站</div>
             <el-form label-position="top" class="sidebar-form">
@@ -406,6 +409,7 @@ function clickMarker(marker: MapMarker) {
   if (editMode.value) {
     clearDraftMarker()
     selectedMarkerId.value = marker.id
+    selectedSidebarStationId.value = marker.station.id
     selectedMarkerStationId.value = marker.station.id
     selectedMarkerType.value = stationType(marker.station)
     return
@@ -417,6 +421,7 @@ function startMarkerDrag(marker: MapMarker, event: PointerEvent) {
   if (!editMode.value) return
   clearDraftMarker()
   selectedMarkerId.value = marker.id
+  selectedSidebarStationId.value = marker.station.id
   selectedMarkerStationId.value = marker.station.id
   selectedMarkerType.value = stationType(marker.station)
   markerDrag.value = { id: marker.id, moved: false }
@@ -463,14 +468,27 @@ async function saveSelectedMarker() {
   ElMessage.success('已保存组件')
 }
 
-async function deleteSelectedMarker() {
+async function deleteSelectedMarker(confirmDelete = false) {
   if (draftMarker.value) {
     clearDraftMarker()
     return
   }
   if (!currentMap.value || !selectedMarker.value) return
-  await map.deleteMarker(currentMap.value.id, selectedMarker.value.id)
+  if (confirmDelete) {
+    const confirmed = await ElMessageBox.confirm('只删除当前地图按钮，不删除车站资料、目录和图片。', '删除车站按钮', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }).then(() => true).catch(() => false)
+    if (!confirmed) return
+  }
+  const mapId = currentMap.value.id
+  const markerId = selectedMarker.value.id
+  await map.deleteMarker(mapId, markerId)
   selectedMarkerId.value = ''
+  selectedMarkerStationId.value = ''
+  ensureSidebarSelection()
+  ElMessage.success('已删除车站按钮')
 }
 
 function clearDraftMarker() {
