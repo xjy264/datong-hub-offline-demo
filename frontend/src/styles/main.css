@@ -65,7 +65,7 @@ button { font: inherit; cursor: pointer; }
 .viewport { min-width: 0; min-height: 420px; height: 100%; overflow: hidden; border-radius: 10px; background: #dce4ea; position: relative; touch-action: none; }
 .map-canvas { width: 1191px; height: 842px; transform-origin: 0 0; position: absolute; left: 0; top: 0; }
 .base-map { width: 1191px; height: 842px; display: block; user-select: none; pointer-events: none; }
-.hotspot { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); min-width: 0; min-height: 0; line-height: 0; appearance: none; box-sizing: border-box; transform: translate(-50%, -50%); border-radius: 50%; border: 0; background: var(--marker-color, #ff0000); padding: 0; }
+.hotspot { display: block; position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); inline-size: var(--size); block-size: var(--size); min-width: 0; min-height: 0; min-inline-size: var(--size); min-block-size: var(--size); max-inline-size: var(--size); max-block-size: var(--size); aspect-ratio: 1 / 1; line-height: 0; font-size: 0; appearance: none; -webkit-appearance: none; box-sizing: border-box; overflow: hidden; transform: translate(-50%, -50%); border-radius: 50%; border: 0; background: var(--marker-color, #ff0000); padding: 0; }
 .hotspot:hover { background: var(--marker-color, #ff0000); outline: 2px solid rgba(17,24,39,.35); outline-offset: 2px; }
 .hotspot.hidden { opacity: .08; pointer-events: none; }
 .hover-card { position: fixed; width: 240px; background: white; border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 10px; padding: 10px; z-index: 20; pointer-events: none; }

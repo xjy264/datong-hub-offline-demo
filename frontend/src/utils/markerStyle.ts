@@ -1,5 +1,5 @@
-export const DEFAULT_MARKER_SIZE = 3.6
-const LEGACY_MARKER_SIZES = [4, 4.4]
+export const DEFAULT_MARKER_SIZE = 2.8
+const LEGACY_MARKER_SIZES = [3.6, 4, 4.4]
 
 type MarkerStyleTarget = {
   x: number
