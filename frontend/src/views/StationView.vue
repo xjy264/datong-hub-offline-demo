@@ -82,13 +82,16 @@
               <div class="folder-path">{{ selectedFolderPath || '请选择目录' }}</div>
               <div class="meta">{{ selectedFolder ? '当前目录可添加图片' : '请选择目录' }}</div>
             </div>
-            <el-button type="primary" :disabled="!selectedFolder" @click="imageInput?.click()">添加图片</el-button>
+            <div class="button-row">
+              <el-button type="primary" :disabled="!selectedFolder" @click="imageInput?.click()">添加图片</el-button>
+              <el-button type="danger" plain :disabled="!selectedFolderImages.length" @click="toggleDeleteImageMode">{{ deleteImageMode ? '完成删除' : '删除图片' }}</el-button>
+            </div>
             <input ref="imageInput" class="file-input" type="file" multiple accept="image/*" @change="uploadImages" />
           </div>
           <div class="image-grid">
             <div v-for="image in selectedFolderImages" :key="image.id" class="photo">
-              <el-image :src="image.url" :alt="image.name" fit="cover" :preview-src-list="selectedFolderImages.map((item) => item.url)" :initial-index="imageIndex(image.id)" preview-teleported />
-              <button title="删除图片" @click="deleteImage(image.id)">×</button>
+              <el-image class="photo-preview" :src="image.url" :alt="image.name" fit="cover" @load="rememberImageSize(image.id, $event)" @click="openImagePreview(imageIndex(image.id))" />
+              <button v-if="deleteImageMode" class="photo-delete-button" title="删除图片" @click.stop="deleteImage(image.id)">×</button>
             </div>
             <div v-if="!selectedFolderImages.length" class="empty">{{ selectedFolder ? '暂无图片' : '请选择目录' }}</div>
           </div>
@@ -97,15 +100,28 @@
     </div>
   </section>
   <section v-else class="page"><div class="empty">站点不存在</div></section>
+  <el-image-viewer
+    v-if="previewVisible"
+    :key="previewViewerKey"
+    :url-list="previewImageUrls"
+    :initial-index="previewIndex"
+    :scale="previewScale"
+    :zoom-rate="1.2"
+    :max-scale="12"
+    teleported
+    @switch="switchImagePreview"
+    @close="closeImagePreview"
+  />
 </template>
 
 <script setup lang="ts">
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
 import type { StationFolder } from '../types'
 import { findNumberedFolderNode, numberedFolderTree, type NumberedFolderNode } from '../utils/folderTree'
+import { imageViewerScale } from '../utils/imageViewerScale'
 import { workshopName as resolveWorkshopName } from '../utils/workshopRoute'
 
 const route = useRoute()
@@ -113,6 +129,11 @@ const router = useRouter()
 const map = useMapStore()
 const imageInput = ref<HTMLInputElement | null>(null)
 const selectedFolderId = ref('')
+const deleteImageMode = ref(false)
+const previewVisible = ref(false)
+const previewIndex = ref(0)
+const imageSizes = reactive<Record<string, { width: number; height: number }>>({})
+const previewViewport = reactive(currentViewport())
 const folderInputs = new Map<string, { focus: () => void }>()
 const form = reactive<{ name: string; notes: string; workshopId: number | null }>({ name: '', notes: '', workshopId: null })
 const station = computed(() => map.stationById(String(route.params.id)))
@@ -138,6 +159,18 @@ const selectedRow = computed(() => findNumberedFolderNode(folderTree.value, sele
 const selectedFolder = computed(() => selectedRow.value?.folder || null)
 const selectedFolderPath = computed(() => selectedRow.value?.pathText || '')
 const selectedFolderImages = computed(() => selectedFolder.value?.images || [])
+const previewImageUrls = computed(() => selectedFolderImages.value.map((image) => image.url))
+const previewImage = computed(() => selectedFolderImages.value[previewIndex.value] || null)
+const previewScale = computed(() => imageViewerScale(previewImage.value ? imageSizes[previewImage.value.id] : null, previewViewport))
+const previewViewerKey = computed(() => `${previewIndex.value}-${previewScale.value}`)
+
+watch(selectedFolderId, () => {
+  deleteImageMode.value = false
+  closeImagePreview()
+})
+watch(selectedFolderImages, (images) => {
+  if (!images.length) deleteImageMode.value = false
+})
 
 function countImages(folders: StationFolder[]): number {
   return folders.reduce((sum, folder) => sum + folder.images.length + countImages(folder.children), 0)
@@ -174,8 +207,18 @@ async function renameFolder(folderId: string, name: string) {
 }
 
 async function deleteFolder(folderId: string) {
+  try {
+    await ElMessageBox.confirm('确定删除这个目录吗？删除后不可恢复。', '删除目录', {
+      confirmButtonText: '确认删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
   await map.deleteFolder(folderId)
   if (selectedFolderId.value === folderId) selectedFolderId.value = ''
+  ElMessage.success('已删除目录')
 }
 
 async function uploadImages(event: Event) {
@@ -187,11 +230,26 @@ async function uploadImages(event: Event) {
 }
 
 async function deleteImage(imageId: string) {
+  try {
+    await ElMessageBox.confirm('确定删除这张图片吗？删除后不可恢复。', '删除图片', {
+      confirmButtonText: '确认删除',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
   await map.deleteImage(imageId)
+  ElMessage.success('已删除图片')
 }
 
 function selectFolderNode(data: NumberedFolderNode) {
   selectedFolderId.value = data.id
+}
+
+function toggleDeleteImageMode() {
+  if (!selectedFolderImages.value.length) return
+  deleteImageMode.value = !deleteImageMode.value
 }
 
 function folderDepth(data: NumberedFolderNode) {
@@ -208,6 +266,38 @@ async function selectAndFocusFolder(folderId: string) {
   selectedFolderId.value = folderId
   await nextTick()
   folderInputs.get(folderId)?.focus()
+}
+
+function openImagePreview(index: number) {
+  updatePreviewViewport()
+  previewIndex.value = Math.min(Math.max(0, index), Math.max(0, selectedFolderImages.value.length - 1))
+  previewVisible.value = true
+}
+
+function switchImagePreview(index: number) {
+  updatePreviewViewport()
+  previewIndex.value = Math.max(0, index)
+}
+
+function closeImagePreview() {
+  previewVisible.value = false
+}
+
+function rememberImageSize(imageId: string, event: Event) {
+  const target = event.target as HTMLImageElement | null
+  if (!target?.naturalWidth || !target?.naturalHeight) return
+  imageSizes[imageId] = { width: target.naturalWidth, height: target.naturalHeight }
+}
+
+function currentViewport() {
+  if (typeof window === 'undefined') return { width: 0, height: 0 }
+  return { width: window.innerWidth, height: window.innerHeight }
+}
+
+function updatePreviewViewport() {
+  const viewport = currentViewport()
+  previewViewport.width = viewport.width
+  previewViewport.height = viewport.height
 }
 
 function imageIndex(imageId: string) {

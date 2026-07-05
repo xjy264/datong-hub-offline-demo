@@ -71,14 +71,7 @@ public class WorkshopService {
 
     @Transactional
     public void deleteWorkshop(Long id) {
-        WorkshopView workshop = requireWorkshop(id);
-        Integer stationCount = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*)
-                FROM map_station s
-                LEFT JOIN station_profile p ON p.station_id = s.id
-                WHERE s.default_workshop_id = ? OR p.workshop_id = ?
-                """, Integer.class, workshop.code(), workshop.code());
-        if (stationCount != null && stationCount > 0) throw new BusinessException("车间下还有车站，不能删除");
+        requireWorkshop(id);
         jdbcTemplate.update("DELETE FROM map_workshop WHERE id = ?", id);
     }
 

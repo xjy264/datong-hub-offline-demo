@@ -66,7 +66,11 @@ async function renameMap(mapId: string, currentName: string) {
 }
 
 async function deleteMap(mapId: string, name: string) {
-  const confirmed = await ElMessageBox.confirm(`确定删除“${name}”吗？关联的车站按钮也会删除。`, '删除地图', { type: 'warning' }).then(() => true).catch(() => false)
+  const confirmed = await ElMessageBox.confirm(`确定删除“${name}”吗？关联的车站按钮也会删除。`, '删除地图', {
+    confirmButtonText: '确认删除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => true).catch(() => false)
   if (!confirmed) return
   await map.deleteMap(mapId)
   ElMessage.success('已删除地图')

@@ -21,7 +21,6 @@
         </button>
         <div class="workshop-card workshop-action-card">
           <strong>车间管理</strong>
-          <span>新增车间，或删除没有车站的车间</span>
           <div class="workshop-action-controls">
             <el-button type="primary" size="small" @click="createWorkshop">新增车间</el-button>
             <el-button type="danger" plain size="small" @click="openDeleteWorkshopDialog">删除车间</el-button>
@@ -213,7 +212,7 @@
           </el-select>
         </el-form-item>
       </el-form>
-      <p class="palette-hint">只有没有车站的车间可以删除。</p>
+      <p class="palette-hint">删除后，已绑定车站将变为未分组车间。</p>
       <template #footer>
         <el-button @click="deleteWorkshopDialogVisible = false">取消</el-button>
         <el-button type="danger" :disabled="deleteWorkshopId == null" @click="deleteWorkshop">确认删除</el-button>
@@ -548,7 +547,7 @@ async function deleteSelectedMarker(confirmDelete = false) {
   if (!currentMap.value || !selectedMarker.value) return
   if (confirmDelete) {
     const confirmed = await ElMessageBox.confirm('只删除当前地图按钮，不删除车站资料、目录和图片。', '删除地图按钮', {
-      confirmButtonText: '删除',
+      confirmButtonText: '确认删除',
       cancelButtonText: '取消',
       type: 'warning'
     }).then(() => true).catch(() => false)

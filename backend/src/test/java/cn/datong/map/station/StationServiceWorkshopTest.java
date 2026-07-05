@@ -24,6 +24,7 @@ class StationServiceWorkshopTest {
     private JdbcTemplate jdbc;
     private StationService stations;
     private WorkshopService workshops;
+    private NoopImageStorage storage;
 
     @BeforeEach
     void setUp() {
@@ -38,7 +39,8 @@ class StationServiceWorkshopTest {
         jdbc.update("INSERT INTO map_workshop (id, code, name, color, sort_order) VALUES (1, 'north', '北部车间', '#0f766e', 10), (2, 'middle', '中部车间', '#1d4ed8', 20)");
         jdbc.update("INSERT INTO map_station VALUES ('station-1', '红进塔', '红进塔', '车站', 'red', '', '261.396', 1, 2, 4.4, 'north')");
         workshops = new WorkshopService(jdbc);
-        stations = new StationService(jdbc, new NoopImageStorage(), new ObjectMapper(), workshops);
+        storage = new NoopImageStorage();
+        stations = new StationService(jdbc, storage, new ObjectMapper(), workshops);
     }
 
     @Test
@@ -133,13 +135,15 @@ class StationServiceWorkshopTest {
     void uploadsImagesToFolderThatHasChildren() throws Exception {
         StationDtos.FolderView root = stations.addFolder("station-1", new StationDtos.FolderRequest(null, "根目录"));
         stations.addFolder("station-1", new StationDtos.FolderRequest(root.id(), "子目录"));
+        byte[] originalBytes = new byte[]{1, 2, 3};
 
         var uploaded = stations.uploadImages("station-1", root.id(), new MockMultipartFile[]{
-                new MockMultipartFile("files", "a.png", "image/png", new byte[]{1, 2, 3})
+                new MockMultipartFile("files", "a.png", "image/png", originalBytes)
         });
 
         assertThat(uploaded).hasSize(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM station_image WHERE folder_id = ?", Integer.class, root.id())).isEqualTo(1);
+        assertThat(storage.lastUploadBytes).isEqualTo(originalBytes);
     }
 
 
@@ -172,10 +176,11 @@ class StationServiceWorkshopTest {
     }
 
     @Test
-    void rejectsDeletingWorkshopWithStations() {
-        assertThatThrownBy(() -> workshops.deleteWorkshop(1L))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("车间下还有车站，不能删除");
+    void deletesWorkshopWithStationsAndStationBecomesUngrouped() {
+        workshops.deleteWorkshop(1L);
+
+        assertThat(workshops.listWorkshops()).extracting(WorkshopView::id).doesNotContain(1L);
+        assertThat(stations.listStations().getFirst().workshopId()).isNull();
     }
 
     @Test
@@ -186,8 +191,11 @@ class StationServiceWorkshopTest {
     }
 
     private static class NoopImageStorage implements ImageStorage {
+        private byte[] lastUploadBytes;
+
         @Override
         public StoredObject upload(byte[] bytes, String contentType, String objectName) {
+            lastUploadBytes = bytes;
             return new StoredObject("test", objectName, bytes.length, contentType);
         }
 
