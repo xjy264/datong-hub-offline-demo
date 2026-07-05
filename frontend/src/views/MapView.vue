@@ -8,7 +8,6 @@
             <span class="eyebrow">整图总览</span>
           </div>
           <h2 class="page-title">{{ currentMap?.name || '地图' }}</h2>
-          <p class="subline">站点信息只保存一份；同一个站点可以在当前背景图上放置多个组件。</p>
         </div>
         <div class="inline-meta">
           <span class="badge">{{ filteredMarkers.length }}/{{ currentMap?.markers.length || 0 }} 个组件</span>
@@ -24,8 +23,8 @@
           <strong>车间管理</strong>
           <span>新增车间，或删除没有车站的车间</span>
           <div class="workshop-action-controls">
-            <el-button type="primary" @click="createWorkshop">新增车间</el-button>
-            <el-button type="danger" plain @click="openDeleteWorkshopDialog">删除车间</el-button>
+            <el-button type="primary" size="small" @click="createWorkshop">新增车间</el-button>
+            <el-button type="danger" plain size="small" @click="openDeleteWorkshopDialog">删除车间</el-button>
           </div>
         </div>
       </div>
@@ -118,24 +117,43 @@
 
           <div v-if="editMode && (selectedMarker || draftMarker)" class="marker-form">
             <h3 class="panel-title">{{ draftMarker ? '新增按钮配置' : '选中按钮配置' }}</h3>
-            <el-radio-group v-model="selectedMarkerType" class="marker-type-group">
-              <el-radio-button label="red">车站</el-radio-button>
-              <el-radio-button label="blue">已撤站</el-radio-button>
-            </el-radio-group>
             <template v-if="draftMarker">
-              <el-input v-model="draftStationName" placeholder="请输入车站名称" maxlength="128" />
-              <el-select v-model="draftStationWorkshopId" placeholder="请选择所属车间" style="width: 100%; margin-top: 8px">
-                <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
-              </el-select>
+              <el-form label-position="top" class="marker-edit-fields">
+                <el-form-item label="车站名称">
+                  <el-input v-model="draftStationName" placeholder="请输入车站名称" maxlength="128" />
+                </el-form-item>
+                <el-form-item label="状态">
+                  <el-radio-group v-model="selectedMarkerType" class="marker-type-group" :disabled="!!draftExistingStation">
+                    <el-radio-button label="red">车站</el-radio-button>
+                    <el-radio-button label="blue">已撤站</el-radio-button>
+                  </el-radio-group>
+                </el-form-item>
+                <p v-if="draftExistingStation" class="matched-station-hint">已匹配已有车站，将使用原车间：{{ workshopName(draftExistingStation.workshopId) }}</p>
+                <el-form-item label="所属车间">
+                  <el-select
+                    :model-value="draftExistingStation?.workshopId ?? draftStationWorkshopId"
+                    placeholder="请选择所属车间"
+                    style="width: 100%"
+                    :disabled="!!draftExistingStation"
+                    @update:model-value="draftStationWorkshopId = $event"
+                  >
+                    <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
+                  </el-select>
+                </el-form-item>
+              </el-form>
               <div class="button-row" style="margin-top: 8px">
-                <el-button type="primary" :disabled="!draftStationName.trim() || draftStationWorkshopId == null" @click="saveSelectedMarker">保存新增按钮</el-button>
+                <el-button type="primary" :disabled="!canSaveDraftMarker" @click="saveSelectedMarker">保存新增按钮</el-button>
                 <el-button type="danger" plain @click="deleteSelectedMarker()">取消</el-button>
               </div>
             </template>
             <template v-else>
-              <el-select v-model="selectedMarkerStationId" filterable placeholder="请选择车站" style="width: 100%">
-                <el-option v-for="station in markerTypeStations" :key="station.id" :label="station.name" :value="station.id" />
-              </el-select>
+              <el-form label-position="top" class="marker-edit-fields">
+                <el-form-item label="这个站为">
+                  <el-select v-model="selectedMarkerStationId" filterable placeholder="请选择车站" style="width: 100%">
+                    <el-option v-for="station in markerTypeStations" :key="station.id" :label="station.name" :value="station.id" />
+                  </el-select>
+                </el-form-item>
+              </el-form>
               <div class="button-row" style="margin-top: 8px">
                 <el-button type="primary" :disabled="!selectedMarkerStationId" @click="saveSelectedMarker">保存按钮</el-button>
                 <el-button type="danger" plain @click="deleteSelectedMarker(true)">删除地图按钮</el-button>
@@ -147,6 +165,12 @@
             <el-form label-position="top" class="sidebar-form">
               <el-form-item label="站点名称">
                 <el-input v-model="sidebarForm.name" :disabled="savingSidebarStation" @change="saveSidebarStation" />
+              </el-form-item>
+              <el-form-item label="状态">
+                <el-radio-group v-model="sidebarForm.color" :disabled="savingSidebarStation" @change="saveSidebarStation">
+                  <el-radio-button label="red">车站</el-radio-button>
+                  <el-radio-button label="blue">已撤站</el-radio-button>
+                </el-radio-group>
               </el-form-item>
               <el-form-item label="所属车间">
                 <el-select v-model="sidebarForm.workshopId" :disabled="savingSidebarStation" style="width: 100%" @change="saveSidebarStation">
@@ -207,7 +231,9 @@ import type { MapMarker, Station, StationFolder, StationImage } from '../types'
 import { nextSidebarStationId } from '../utils/mapMarkerClick'
 import { focusMarkerTransform, markerSuggestions } from '../utils/mapSearch'
 import { createMarkerDraft } from '../utils/markerDraft'
+import { markerEditStationOptions, markerTypeForStation } from '../utils/markerEdit'
 import { DEFAULT_MARKER_SIZE, markerCssVars } from '../utils/markerStyle'
+import { findStationByName } from '../utils/stationMatch'
 import { stationDetailPath } from '../utils/stationRoute'
 import { workshopName as resolveWorkshopName, workshopPath } from '../utils/workshopRoute'
 
@@ -231,7 +257,7 @@ const deleteWorkshopDialogVisible = ref(false)
 const deleteWorkshopId = ref<number | null>(null)
 const selectedSidebarStationId = ref('')
 const savingSidebarStation = ref(false)
-const sidebarForm = reactive<{ name: string; workshopId: number | null }>({ name: '', workshopId: null })
+const sidebarForm = reactive<{ name: string; workshopId: number | null; color: 'red' | 'blue' }>({ name: '', workshopId: null, color: 'red' })
 const scale = ref(1)
 const panX = ref(0)
 const panY = ref(0)
@@ -282,12 +308,21 @@ const hoverStyle = computed(() => ({ left: `${hoverX.value}px`, top: `${hoverY.v
 const selectedMarker = computed(() => currentMap.value?.markers.find((marker) => marker.id === selectedMarkerId.value) || null)
 const selectedSidebarStation = computed(() => map.stations.find((station) => station.id === selectedSidebarStationId.value) || null)
 const selectedMarkerStation = computed(() => map.stations.find((station) => station.id === selectedMarkerStationId.value) || null)
-const markerTypeStations = computed(() => map.stations.filter((station) => stationType(station) === selectedMarkerType.value))
+const markerTypeStations = computed(() => markerEditStationOptions(map.stations))
+const draftExistingStation = computed(() => findStationByName(map.stations, draftStationName.value))
+const canSaveDraftMarker = computed(() => !!draftStationName.value.trim() && (!!draftExistingStation.value || draftStationWorkshopId.value != null))
 
 watch(selectedSidebarStation, syncSidebarForm)
 
-watch(selectedMarkerType, () => {
-  if (selectedMarkerStation.value && stationType(selectedMarkerStation.value) !== selectedMarkerType.value) selectedMarkerStationId.value = ''
+watch(selectedMarkerStationId, (stationId) => {
+  if (!draftMarker.value) {
+    selectedMarkerType.value = markerTypeForStation(map.stations, stationId, selectedMarkerType.value)
+    if (stationId) selectedSidebarStationId.value = stationId
+  }
+})
+
+watch(draftExistingStation, (station) => {
+  if (station) selectedMarkerType.value = stationType(station)
 })
 
 function workshopName(id: number | string | null | undefined) {
@@ -323,6 +358,7 @@ function syncSidebarForm() {
   if (!selectedSidebarStation.value) return
   sidebarForm.name = selectedSidebarStation.value.name
   sidebarForm.workshopId = selectedSidebarStation.value.workshopId
+  sidebarForm.color = stationType(selectedSidebarStation.value)
 }
 
 function countImages(folders: StationFolder[]): number {
@@ -406,7 +442,7 @@ async function saveSidebarStation() {
   }
   savingSidebarStation.value = true
   try {
-    await map.updateProfile(selectedSidebarStation.value.id, { name, notes: selectedSidebarStation.value.notes || '', workshopId: sidebarForm.workshopId })
+    await map.updateProfile(selectedSidebarStation.value.id, { name, notes: selectedSidebarStation.value.notes || '', workshopId: sidebarForm.workshopId, color: sidebarForm.color })
     ElMessage.success('已保存')
   } finally {
     savingSidebarStation.value = false
@@ -469,13 +505,14 @@ async function saveSelectedMarker() {
       ElMessage.warning('请输入车站名称')
       return
     }
-    if (draftStationWorkshopId.value == null) {
+    const existingStation = draftExistingStation.value
+    if (!existingStation && draftStationWorkshopId.value == null) {
       ElMessage.warning('请选择所属车间')
       return
     }
     const mapId = currentMap.value.id
     const draft = draftMarker.value
-    const station = await map.createStation({ name, color: selectedMarkerType.value, workshopId: draftStationWorkshopId.value, x: draft.x, y: draft.y, size: draft.size })
+    const station = existingStation || await map.createStation({ name, color: selectedMarkerType.value, workshopId: draftStationWorkshopId.value!, x: draft.x, y: draft.y, size: draft.size })
     await map.createMarker(mapId, {
       stationId: station.id,
       x: draft.x,
@@ -490,12 +527,14 @@ async function saveSelectedMarker() {
     ElMessage.warning('请选择按钮对应的车站')
     return
   }
-  const stationSize = stationMarkerSize(selectedMarkerStation.value)
-  if (!selectedMarker.value) return
-  await map.updateMarker(currentMap.value.id, selectedMarker.value.id, {
+  const station = selectedMarkerStation.value
+  const marker = selectedMarker.value
+  if (!station || !marker) return
+  const stationSize = stationMarkerSize(station)
+  await map.updateMarker(currentMap.value.id, marker.id, {
     stationId: selectedMarkerStationId.value,
-    x: selectedMarker.value.x,
-    y: selectedMarker.value.y,
+    x: marker.x,
+    y: marker.y,
     size: stationSize
   })
   ElMessage.success('已保存组件')

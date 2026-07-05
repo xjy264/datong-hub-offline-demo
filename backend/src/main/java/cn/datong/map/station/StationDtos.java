@@ -27,7 +27,10 @@ public final class StationDtos {
     public record WorkshopRequest(String name) {
     }
 
-    public record ProfileRequest(String name, String notes, Long workshopId) {
+    public record ProfileRequest(String name, String notes, Long workshopId, String color) {
+        public ProfileRequest(String name, String notes, Long workshopId) {
+            this(name, notes, workshopId, null);
+        }
     }
 
     public record CreateStationRequest(String name, String color, Long workshopId, double x, double y, double size) {

@@ -96,6 +96,11 @@ public class StationService {
                 VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON DUPLICATE KEY UPDATE name = VALUES(name), notes = VALUES(notes), workshop_id = VALUES(workshop_id), updated_at = CURRENT_TIMESTAMP
                 """, stationId, trim(request.name()), trim(request.notes()), workshopCode);
+        if (request.color() != null) {
+            String color = "blue".equals(request.color()) ? "blue" : "red";
+            String type = "blue".equals(color) ? "已撤站" : "车站";
+            jdbcTemplate.update("UPDATE map_station SET color = ?, type = ? WHERE id = ?", color, type, stationId);
+        }
     }
 
     @Transactional
@@ -103,6 +108,11 @@ public class StationService {
         if (request == null) throw new BusinessException("车站名称不能为空");
         String name = trim(request.name());
         if (name.isBlank()) throw new BusinessException("车站名称不能为空");
+        StationView existing = listStations().stream()
+                .filter(station -> trim(station.name()).equals(name))
+                .findFirst()
+                .orElse(null);
+        if (existing != null) return existing;
         if (request.workshopId() == null) throw new BusinessException("请选择所属车间");
         String workshopCode = workshops.storageCode(request.workshopId());
         String color = "blue".equals(request.color()) ? "blue" : "red";

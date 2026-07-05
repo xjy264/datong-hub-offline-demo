@@ -62,6 +62,30 @@ class StationServiceWorkshopTest {
     }
 
     @Test
+    void updateProfileCanChangeStationColorWhenProvided() {
+        stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, "blue"));
+
+        StationDtos.StationView blue = stations.listStations().getFirst();
+        assertThat(blue.color()).isEqualTo("blue");
+        assertThat(blue.type()).isEqualTo("已撤站");
+
+        stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, "red"));
+
+        StationDtos.StationView red = stations.listStations().getFirst();
+        assertThat(red.color()).isEqualTo("red");
+        assertThat(red.type()).isEqualTo("车站");
+    }
+
+    @Test
+    void updateProfileWithoutColorKeepsStationColor() {
+        stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 2L));
+
+        StationDtos.StationView station = stations.listStations().getFirst();
+        assertThat(station.color()).isEqualTo("red");
+        assertThat(station.type()).isEqualTo("车站");
+    }
+
+    @Test
     void blankWorkshopKeepsStationDefaultWorkshop() {
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", null));
 
@@ -86,6 +110,16 @@ class StationServiceWorkshopTest {
         assertThat(created.workshopId()).isEqualTo(2L);
         assertThat(created.position().x()).isEqualTo(12.5);
         assertThat(created.position().y()).isEqualTo(34.5);
+    }
+
+    @Test
+    void returnsExistingStationByNameWithoutChangingWorkshop() {
+        StationDtos.StationView existing = stations.createStation(new CreateStationRequest("  红进塔  ", "blue", 2L, 12.5, 34.5, 4.4));
+
+        assertThat(existing.id()).isEqualTo("station-1");
+        assertThat(existing.workshopId()).isEqualTo(1L);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM map_station", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT default_workshop_id FROM map_station WHERE id = 'station-1'", String.class)).isEqualTo("north");
     }
 
     @Test

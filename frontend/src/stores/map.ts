@@ -74,7 +74,7 @@ export const useMapStore = defineStore('map', {
       await apiDelete(`/maps/${mapId}/markers/${markerId}`)
       await this.loadMap(mapId)
     },
-    async updateProfile(stationId: string, body: { name: string; notes: string; workshopId: number | null }) {
+    async updateProfile(stationId: string, body: { name: string; notes: string; workshopId: number | null; color?: 'red' | 'blue' }) {
       await apiPut(`/stations/${stationId}/profile`, body)
       if (this.currentMap) await this.loadMap(this.currentMap.id)
       else await this.load(true)
