@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import { unauthorizedSessionAction } from '../utils/unauthorizedAction'
 
 export interface ApiResult<T> {
   code: number
@@ -47,8 +48,9 @@ http.interceptors.response.use(
     const status = error.response?.status
     const message = error.response?.data?.message || (status === 401 ? '登录状态已失效，请重新登录。' : '无法连接系统服务，请确认网络正常后重试。')
     if (status === 401) {
-      useAuthStore().logout()
-      if (window.location.pathname !== '/login') window.location.replace('/login')
+      const action = unauthorizedSessionAction(window.location.pathname)
+      if (action.clearLocalSession) useAuthStore().logoutLocal()
+      if (action.redirectToLogin) window.location.replace('/login')
     } else {
       ElMessage.error(message)
     }
