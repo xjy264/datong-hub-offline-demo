@@ -90,7 +90,7 @@
           </div>
           <div class="image-grid">
             <div v-for="image in selectedFolderImages" :key="image.id" class="photo">
-              <el-image class="photo-preview" :src="image.url" :alt="image.name" fit="cover" @load="rememberImageSize(image.id, $event)" @click="openImagePreview(imageIndex(image.id))" />
+              <el-image class="photo-preview" :src="image.url" :alt="image.name" fit="cover" lazy @load="rememberImageSize(image.id, $event)" @click="openImagePreview(imageIndex(image.id))" />
               <button v-if="deleteImageMode" class="photo-delete-button" title="删除图片" @click.stop="deleteImage(image.id)">×</button>
             </div>
             <div v-if="!selectedFolderImages.length" class="empty">{{ selectedFolder ? '暂无图片' : '请选择目录' }}</div>

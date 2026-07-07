@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -113,7 +114,7 @@ public class StationController {
         String filename = URLEncoder.encode(image.name(), StandardCharsets.UTF_8).replace("+", "%20");
         return ResponseEntity.ok()
                 .contentType(image.mediaType())
-                .cacheControl(CacheControl.noCache())
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePrivate())
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename*=UTF-8''" + filename)
                 .body(image.resource());
     }

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.util.List;
 
 @RestController
@@ -46,7 +47,7 @@ public class MapDocumentController {
         MapDocumentService.BackgroundDownload background = service.background(mapId);
         return ResponseEntity.ok()
                 .contentType(background.mediaType())
-                .cacheControl(CacheControl.noCache())
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePrivate())
                 .body(background.resource());
     }
 
