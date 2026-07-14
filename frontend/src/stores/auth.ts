@@ -6,7 +6,6 @@ export interface LoginUser {
   username: string
   phone: string
   realName: string
-  isSuperAdmin: boolean
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -16,8 +15,7 @@ export const useAuthStore = defineStore('auth', {
     initialized: false
   }),
   getters: {
-    isAuthenticated: (state) => Boolean(state.user),
-    canManageUsers: (state) => state.permissions.includes('USER_ADMIN')
+    isAuthenticated: (state) => Boolean(state.user)
   },
   actions: {
     setSession(user: LoginUser, permissions: string[]) {
