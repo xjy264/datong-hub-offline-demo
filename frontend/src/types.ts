@@ -67,6 +67,7 @@ export interface MapInterval {
   markerAId: string
   markerBId: string
   baseStations: string[]
+  directionOffset: number
 }
 
 export interface MapDetail extends MapSummary {

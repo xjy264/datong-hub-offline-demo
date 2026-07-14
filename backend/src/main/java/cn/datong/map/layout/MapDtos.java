@@ -27,9 +27,10 @@ public final class MapDtos {
     public record MarkerRequest(String stationId, double x, double y, double size) {
     }
 
-    public record IntervalView(String id, String mapId, String markerAId, String markerBId, List<String> baseStations) {
+    public record IntervalView(String id, String mapId, String markerAId, String markerBId, List<String> baseStations,
+                               double directionOffset) {
     }
 
-    public record IntervalRequest(String markerAId, String markerBId, List<String> baseStations) {
+    public record IntervalRequest(String markerAId, String markerBId, List<String> baseStations, Double directionOffset) {
     }
 }

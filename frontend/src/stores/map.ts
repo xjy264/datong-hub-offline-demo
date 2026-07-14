@@ -76,11 +76,11 @@ export const useMapStore = defineStore('map', {
       await apiDelete(`/maps/${mapId}/markers/${markerId}`)
       await this.loadMap(mapId)
     },
-    async createInterval(mapId: string, body: { markerAId: string; markerBId: string; baseStations: string[] }) {
+    async createInterval(mapId: string, body: { markerAId: string; markerBId: string; baseStations: string[]; directionOffset: number }) {
       await apiPost<MapInterval>(`/maps/${mapId}/intervals`, body)
       await this.loadMap(mapId)
     },
-    async updateInterval(mapId: string, intervalId: string, body: { markerAId: string; markerBId: string; baseStations: string[] }) {
+    async updateInterval(mapId: string, intervalId: string, body: { markerAId: string; markerBId: string; baseStations: string[]; directionOffset: number }) {
       await apiPut<MapInterval>(`/maps/${mapId}/intervals/${intervalId}`, body)
       await this.loadMap(mapId)
     },

@@ -170,11 +170,12 @@ public class MapDocumentService {
         requireAuthenticated(user);
         requireMap(mapId);
         List<String> baseStations = validateInterval(mapId, null, request);
+        double directionOffset = validateDirectionOffset(request.directionOffset());
         String id = "interval-" + UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO map_interval (id, map_id, marker_a_id, marker_b_id, base_stations, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """, id, mapId, request.markerAId(), request.markerBId(), String.join("\n", baseStations));
+                INSERT INTO map_interval (id, map_id, marker_a_id, marker_b_id, base_stations, direction_offset, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, id, mapId, request.markerAId(), request.markerBId(), String.join("\n", baseStations), directionOffset);
         return interval(mapId, id);
     }
 
@@ -183,11 +184,12 @@ public class MapDocumentService {
         requireAuthenticated(user);
         requireMap(mapId);
         List<String> baseStations = validateInterval(mapId, intervalId, request);
+        double directionOffset = validateDirectionOffset(request.directionOffset());
         int updated = jdbcTemplate.update("""
                 UPDATE map_interval
-                SET marker_a_id = ?, marker_b_id = ?, base_stations = ?, updated_at = CURRENT_TIMESTAMP
+                SET marker_a_id = ?, marker_b_id = ?, base_stations = ?, direction_offset = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ? AND map_id = ?
-                """, request.markerAId(), request.markerBId(), String.join("\n", baseStations), intervalId, mapId);
+                """, request.markerAId(), request.markerBId(), String.join("\n", baseStations), directionOffset, intervalId, mapId);
         if (updated == 0) throw new BusinessException("车站区间不存在");
         return interval(mapId, intervalId);
     }
@@ -223,20 +225,20 @@ public class MapDocumentService {
 
     private List<IntervalView> intervals(String mapId) {
         return jdbcTemplate.query("""
-                SELECT id, map_id, marker_a_id, marker_b_id, base_stations
+                SELECT id, map_id, marker_a_id, marker_b_id, base_stations, direction_offset
                 FROM map_interval WHERE map_id = ? ORDER BY created_at, id
                 """, (rs, rowNum) -> new IntervalView(rs.getString("id"), rs.getString("map_id"),
                 rs.getString("marker_a_id"), rs.getString("marker_b_id"),
-                rs.getString("base_stations").lines().toList()), mapId);
+                rs.getString("base_stations").lines().toList(), rs.getDouble("direction_offset")), mapId);
     }
 
     private IntervalView interval(String mapId, String intervalId) {
         List<IntervalView> matches = jdbcTemplate.query("""
-                SELECT id, map_id, marker_a_id, marker_b_id, base_stations
+                SELECT id, map_id, marker_a_id, marker_b_id, base_stations, direction_offset
                 FROM map_interval WHERE id = ? AND map_id = ?
                 """, (rs, rowNum) -> new IntervalView(rs.getString("id"), rs.getString("map_id"),
                 rs.getString("marker_a_id"), rs.getString("marker_b_id"),
-                rs.getString("base_stations").lines().toList()), intervalId, mapId);
+                rs.getString("base_stations").lines().toList(), rs.getDouble("direction_offset")), intervalId, mapId);
         if (matches.isEmpty()) throw new BusinessException("车站区间不存在");
         return matches.getFirst();
     }
@@ -265,6 +267,14 @@ public class MapDocumentService {
                 .toList();
         if (baseStations.isEmpty()) throw new BusinessException("请填写基站信息");
         return baseStations;
+    }
+
+    private double validateDirectionOffset(Double directionOffset) {
+        double value = directionOffset == null ? 0 : directionOffset;
+        if (!Double.isFinite(value) || value < -180 || value > 180) {
+            throw new BusinessException("区间方向角度必须在-180°到180°之间");
+        }
+        return value;
     }
 
     private MapSummary mapSummary(String mapId) {

@@ -84,7 +84,7 @@
               type="button"
               class="interval-hotspot"
               :class="{ selected: selectedIntervalId === item.interval.id, active: !editMode && selectedSidebarIntervalId === item.interval.id }"
-              :style="intervalStyle(item.markerA, item.markerB)"
+              :style="intervalStyle(item.interval, item.markerA, item.markerB)"
               :title="`${item.markerA.station.name}—${item.markerB.station.name}车站区间`"
               @click.stop="clickInterval(item.interval)"
               @pointerdown.stop
@@ -145,6 +145,13 @@
                 <el-select v-model="intervalForm.markerBId" filterable placeholder="请选择车站按钮" style="width: 100%">
                   <el-option v-for="marker in currentMap?.markers || []" :key="marker.id" :label="markerOptionLabel(marker)" :value="marker.id" />
                 </el-select>
+              </el-form-item>
+              <el-form-item label="方向角度（相对自动方向）">
+                <div class="interval-direction-fields">
+                  <el-input-number v-model="intervalForm.directionOffset" :min="-180" :max="180" :step="1" controls-position="right" style="width: 100%" />
+                  <el-slider v-model="intervalForm.directionOffset" :min="-180" :max="180" :step="1" />
+                  <small>0° 为自动连线方向，调整时地图上会实时预览。</small>
+                </div>
               </el-form-item>
               <el-form-item label="基站信息列表">
                 <div class="base-station-fields">
@@ -306,7 +313,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
 import type { MapInterval, MapMarker, Station, StationFolder, StationImage } from '../types'
-import { intervalGeometry } from '../utils/intervalGeometry'
+import { intervalGeometry, intervalPreviewDirection } from '../utils/intervalGeometry'
 import { nextSidebarStationId } from '../utils/mapMarkerClick'
 import { focusMarkerTransform, markerSuggestions } from '../utils/mapSearch'
 import { createMarkerDraft } from '../utils/markerDraft'
@@ -333,7 +340,7 @@ const selectedMarkerType = ref<'red' | 'blue'>('red')
 const selectedIntervalId = ref('')
 const selectedSidebarIntervalId = ref('')
 const intervalDraft = ref(false)
-const intervalForm = reactive<{ markerAId: string; markerBId: string; baseStations: string[] }>({ markerAId: '', markerBId: '', baseStations: [''] })
+const intervalForm = reactive<{ markerAId: string; markerBId: string; baseStations: string[]; directionOffset: number }>({ markerAId: '', markerBId: '', baseStations: [''], directionOffset: 0 })
 const draftStationName = ref('')
 const draftStationWorkshopId = ref<number | null>(null)
 const deleteWorkshopDialogVisible = ref(false)
@@ -496,8 +503,9 @@ function markerStyle(marker: { x: number; y: number; size?: number; color?: stri
   })
 }
 
-function intervalStyle(markerA: MapMarker, markerB: MapMarker) {
-  const geometry = intervalGeometry(markerA, markerB)
+function intervalStyle(interval: MapInterval, markerA: MapMarker, markerB: MapMarker) {
+  const directionOffset = intervalPreviewDirection(interval, selectedIntervalId.value, intervalForm.directionOffset)
+  const geometry = intervalGeometry(markerA, markerB, directionOffset)
   return {
     '--interval-x': `${geometry.x}px`,
     '--interval-y': `${geometry.y}px`,
@@ -581,6 +589,7 @@ function beginNewInterval() {
   intervalForm.markerAId = ''
   intervalForm.markerBId = ''
   intervalForm.baseStations = ['']
+  intervalForm.directionOffset = 0
 }
 
 function clickInterval(interval: MapInterval) {
@@ -594,6 +603,7 @@ function clickInterval(interval: MapInterval) {
   intervalForm.markerAId = interval.markerAId
   intervalForm.markerBId = interval.markerBId
   intervalForm.baseStations = [...interval.baseStations]
+  intervalForm.directionOffset = interval.directionOffset
 }
 
 function addBaseStation() {
@@ -610,7 +620,8 @@ async function saveInterval() {
   const body = {
     markerAId: intervalForm.markerAId,
     markerBId: intervalForm.markerBId,
-    baseStations: intervalForm.baseStations.map((item) => item.trim()).filter(Boolean)
+    baseStations: intervalForm.baseStations.map((item) => item.trim()).filter(Boolean),
+    directionOffset: intervalForm.directionOffset
   }
   if (intervalDraft.value) await map.createInterval(currentMap.value.id, body)
   else if (selectedInterval.value) await map.updateInterval(currentMap.value.id, selectedInterval.value.id, body)
@@ -637,6 +648,7 @@ function clearIntervalEdit() {
   intervalForm.markerAId = ''
   intervalForm.markerBId = ''
   intervalForm.baseStations = ['']
+  intervalForm.directionOffset = 0
 }
 
 function startNewMarkerDrag(event: DragEvent) {

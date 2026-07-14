@@ -134,6 +134,8 @@ button { font: inherit; cursor: pointer; }
 .new-interval-preview { width: 34px; height: 5px; border-radius: 999px; background: #f59e0b; box-shadow: 0 0 0 1px rgba(120, 53, 15, .6); }
 .base-station-fields { width: 100%; display: grid; gap: 8px; }
 .base-station-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.interval-direction-fields { width: 100%; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px 12px; align-items: center; }
+.interval-direction-fields small { grid-column: 1 / -1; color: var(--muted); line-height: 1.4; }
 .base-station-list { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
 .interval-sidebar-info { margin-top: 10px; }
 .interval-hover-card { width: 280px; }
