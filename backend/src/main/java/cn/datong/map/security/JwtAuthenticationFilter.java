@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -32,12 +33,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Long userId = jwtTokenProvider.parseUserId(token);
                 List<CurrentUser> users = jdbcTemplate.query("""
-                        SELECT id FROM sys_user
+                        SELECT id, is_super_admin FROM sys_user
                         WHERE id = ? AND deleted = 0 AND status = 'ENABLED' AND approval_status = 'APPROVED'
-                        """, (rs, rowNum) -> new CurrentUser(rs.getLong("id"), true), userId);
+                        """, (rs, rowNum) -> new CurrentUser(rs.getLong("id"), rs.getBoolean("is_super_admin")), userId);
                 if (!users.isEmpty()) {
+                    CurrentUser user = users.getFirst();
+                    List<SimpleGrantedAuthority> authorities = user.superAdmin()
+                            ? List.of(new SimpleGrantedAuthority("ROLE_EDITOR"), new SimpleGrantedAuthority("ROLE_ADMIN"))
+                            : List.of(new SimpleGrantedAuthority("ROLE_EDITOR"));
                     SecurityContextHolder.getContext().setAuthentication(
-                            new UsernamePasswordAuthenticationToken(users.getFirst(), null, List.of()));
+                            new UsernamePasswordAuthenticationToken(user, null, authorities));
                 }
             } catch (Exception ignored) {
                 SecurityContextHolder.clearContext();

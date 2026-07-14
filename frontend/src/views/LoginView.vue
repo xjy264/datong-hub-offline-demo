@@ -14,14 +14,6 @@
           <el-input v-model="form.password" type="password" show-password autocomplete="current-password" />
         </el-form-item>
         <el-checkbox v-model="rememberPhone" class="remember-phone">记住手机号</el-checkbox>
-        <SliderCaptcha
-          ref="captchaRef"
-          host-id="login-captcha"
-          :verified="Boolean(form.captchaKey)"
-          unavailable-message="人机验证暂时不可用，请稍后重试或联系管理员。"
-          @verified="handleCaptchaVerified"
-          @reset="resetCaptchaState"
-        />
         <el-button type="primary" style="width:100%" :loading="loading" @click="login">登录</el-button>
         <el-button text style="width:100%;margin:10px 0 0" @click="router.push('/register')">申请注册账号</el-button>
       </el-form>
@@ -33,33 +25,17 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiPost } from '../api/http'
-import SliderCaptcha from '../components/SliderCaptcha.vue'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(false)
-const captchaRef = ref<InstanceType<typeof SliderCaptcha> | null>(null)
 const REMEMBER_PHONE_KEY = 'datong-map:remember-phone'
 const rememberedPhone = localStorage.getItem(REMEMBER_PHONE_KEY) || ''
 const rememberPhone = ref(Boolean(rememberedPhone))
-const form = reactive({ phone: rememberedPhone, password: '', captchaKey: '', captchaCode: '' })
-
-function resetCaptchaState() {
-  form.captchaKey = ''
-  form.captchaCode = ''
-}
-
-function handleCaptchaVerified(payload: { captchaKey: string; captchaCode: string }) {
-  form.captchaKey = payload.captchaKey
-  form.captchaCode = payload.captchaCode
-}
+const form = reactive({ phone: rememberedPhone, password: '' })
 
 async function login() {
-  if (!form.captchaKey) {
-    captchaRef.value?.setError('请先完成滑块验证。若一直失败，请稍后重试或联系管理员。')
-    return
-  }
   loading.value = true
   try {
     const result = await apiPost<{ user: any; permissions: string[] }>('/auth/login', form)
@@ -67,8 +43,6 @@ async function login() {
     else localStorage.removeItem(REMEMBER_PHONE_KEY)
     auth.setSession(result.user, result.permissions)
     router.push('/maps')
-  } catch {
-    captchaRef.value?.reset()
   } finally {
     loading.value = false
   }

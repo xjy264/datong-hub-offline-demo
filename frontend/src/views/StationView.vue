@@ -84,10 +84,10 @@
               <div class="meta">{{ selectedFolder ? '当前目录可添加图片' : '请选择目录' }}</div>
             </div>
             <div class="button-row">
-              <el-button type="primary" :disabled="!selectedFolder" @click="imageInput?.click()">添加图片</el-button>
+              <el-button type="primary" :disabled="!selectedFolder || !!map.uploadProgress" @click="imageInput?.click()">{{ map.uploadProgress ? `上传中 ${map.uploadProgress.completed}/${map.uploadProgress.total}` : '添加图片' }}</el-button>
               <el-button type="danger" plain :disabled="!selectedFolderImages.length" @click="toggleDeleteImageMode">{{ deleteImageMode ? '完成删除' : '删除图片' }}</el-button>
             </div>
-            <input ref="imageInput" class="file-input" type="file" multiple accept="image/*" @change="uploadImages" />
+            <input ref="imageInput" class="file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" @change="uploadImages" />
           </div>
           <div class="image-grid">
             <div v-for="image in selectedFolderImages" :key="image.id" class="photo">
@@ -224,11 +224,17 @@ async function deleteFolder(folderId: string) {
 }
 
 async function uploadImages(event: Event) {
-  const files = (event.target as HTMLInputElement).files
+  const input = event.target as HTMLInputElement
+  const files = input.files
   if (!station.value || !selectedFolder.value || !files?.length) return
-  await map.uploadImages(station.value.id, selectedFolder.value.id, files)
-  ;(event.target as HTMLInputElement).value = ''
-  ElMessage.success('已上传图片')
+  try {
+    await map.uploadImages(station.value.id, selectedFolder.value.id, files)
+    ElMessage.success('已上传图片')
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('20MB')) ElMessage.error(error.message)
+  } finally {
+    input.value = ''
+  }
 }
 
 async function deleteImage(imageId: string) {

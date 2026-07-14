@@ -6,8 +6,6 @@ public record RegisterRequest(
         @NotBlank(message = "真实姓名不能为空") String realName,
         @NotBlank(message = "手机号不能为空") String phone,
         String password,
-        String confirmPassword,
-        String captchaKey,
-        String captchaCode
+        String confirmPassword
 ) {
 }

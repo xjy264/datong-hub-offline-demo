@@ -5,13 +5,18 @@ import cn.datong.map.station.StationDtos.WorkshopView;
 import cn.datong.map.station.WorkshopService;
 import cn.datong.map.storage.ImageStorage;
 import cn.datong.map.storage.StoredObject;
+import cn.datong.map.storage.UploadPolicy;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,7 +42,7 @@ class MapDocumentServiceTest {
         jdbc.update("INSERT INTO map_workshop (id, code, name, color, sort_order) VALUES (1, 'north', '北部车间', '#0f766e', 10)");
         jdbc.update("INSERT INTO map_station VALUES ('xinzhou', '忻州站', '忻州站', '车站', 'red', '', '001', 10, 20, 4.4, 'north')");
         jdbc.update("INSERT INTO map_document VALUES ('default-map', '默认地图', NULL, NULL, NULL, NULL, '/assets/full-map.svg', 1191, 842, 1, CURRENT_TIMESTAMP)");
-        service = new MapDocumentService(jdbc, new FakeStorage(), new PdfFirstPageRenderer(), new WorkshopService(jdbc));
+        service = new MapDocumentService(jdbc, new FakeStorage(), new PdfFirstPageRenderer(), new WorkshopService(jdbc), new UploadPolicy());
     }
 
     @Test
@@ -86,7 +91,7 @@ class MapDocumentServiceTest {
     @Test
     void deleteMapRemovesMarkersAndUploadedObjects() {
         FakeStorage storage = new FakeStorage();
-        service = new MapDocumentService(jdbc, storage, new PdfFirstPageRenderer(), new WorkshopService(jdbc));
+        service = new MapDocumentService(jdbc, storage, new PdfFirstPageRenderer(), new WorkshopService(jdbc), new UploadPolicy());
         jdbc.update("INSERT INTO map_document VALUES ('uploaded-map', '上传地图', 'test', 'maps/uploaded/source.pdf', 'test', 'maps/uploaded/background.png', '/api/maps/uploaded-map/background', 100, 100, 1, CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO map_marker VALUES ('marker-1', 'uploaded-map', 'xinzhou', 10, 20, 8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
 
@@ -102,6 +107,19 @@ class MapDocumentServiceTest {
         assertThatThrownBy(() -> service.deleteMap(new CurrentUser(1L, true), "default-map"))
                 .isInstanceOf(cn.datong.map.common.BusinessException.class)
                 .hasMessage("至少保留一张地图");
+    }
+
+    @Test
+    void createMapRemovesFirstObjectWhenSecondUploadFails() throws Exception {
+        FakeStorage storage = new FakeStorage();
+        storage.failOnUpload = 2;
+        service = new MapDocumentService(jdbc, storage, new PdfFirstPageRenderer(), new WorkshopService(jdbc), new UploadPolicy());
+
+        assertThatThrownBy(() -> service.createMap(new CurrentUser(1L, true), "地图", new MockMultipartFile(
+                "file", "map.pdf", "application/pdf", onePagePdf())))
+                .isInstanceOf(RuntimeException.class);
+
+        assertThat(storage.removed).anyMatch(value -> value.endsWith("/source.pdf"));
     }
 
     @Test
@@ -152,10 +170,14 @@ class MapDocumentServiceTest {
 
     private static class FakeStorage implements ImageStorage {
         private final java.util.List<String> removed = new java.util.ArrayList<>();
+        private int uploadCount;
+        private int failOnUpload;
 
         @Override
-        public StoredObject upload(byte[] bytes, String contentType, String objectName) {
-            return new StoredObject("test", objectName, bytes.length, contentType);
+        public StoredObject upload(InputStream input, long size, String contentType, String objectName) {
+            uploadCount++;
+            if (uploadCount == failOnUpload) throw new RuntimeException("storage failed");
+            return new StoredObject("test", objectName, size, contentType);
         }
 
         @Override
@@ -166,6 +188,14 @@ class MapDocumentServiceTest {
         @Override
         public void remove(String bucket, String objectName) {
             removed.add(bucket + "/" + objectName);
+        }
+    }
+
+    private byte[] onePagePdf() throws Exception {
+        try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            document.addPage(new PDPage());
+            document.save(output);
+            return output.toByteArray();
         }
     }
 }

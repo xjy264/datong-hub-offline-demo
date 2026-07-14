@@ -6,6 +6,7 @@ import cn.datong.map.station.StationDtos.ProfileRequest;
 import cn.datong.map.station.StationDtos.WorkshopView;
 import cn.datong.map.storage.ImageStorage;
 import cn.datong.map.storage.StoredObject;
+import cn.datong.map.storage.UploadPolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.h2.jdbcx.JdbcDataSource;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +41,7 @@ class StationServiceWorkshopTest {
         jdbc.update("INSERT INTO map_station VALUES ('station-1', '红进塔', '红进塔', '车站', 'red', '', '261.396', 1, 2, 4.4, 'north')");
         workshops = new WorkshopService(jdbc);
         storage = new NoopImageStorage();
-        stations = new StationService(jdbc, storage, new ObjectMapper(), workshops);
+        stations = new StationService(jdbc, storage, new ObjectMapper(), workshops, new UploadPolicy());
     }
 
     @Test
@@ -163,7 +164,7 @@ class StationServiceWorkshopTest {
     void uploadsImagesToFolderThatHasChildren() throws Exception {
         StationDtos.FolderView root = stations.addFolder("station-1", new StationDtos.FolderRequest(null, "根目录"));
         stations.addFolder("station-1", new StationDtos.FolderRequest(root.id(), "子目录"));
-        byte[] originalBytes = new byte[]{1, 2, 3};
+        byte[] originalBytes = new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
 
         var uploaded = stations.uploadImages("station-1", root.id(), new MockMultipartFile[]{
                 new MockMultipartFile("files", "a.png", "image/png", originalBytes)
@@ -172,6 +173,53 @@ class StationServiceWorkshopTest {
         assertThat(uploaded).hasSize(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM station_image WHERE folder_id = ?", Integer.class, root.id())).isEqualTo(1);
         assertThat(storage.lastUploadBytes).isEqualTo(originalBytes);
+    }
+
+    @Test
+    void removesUploadedObjectWhenMetadataInsertFails() {
+        StationDtos.FolderView root = stations.addFolder("station-1", new StationDtos.FolderRequest(null, "根目录"));
+        jdbc.execute("DROP TABLE station_image");
+
+        assertThatThrownBy(() -> stations.uploadImages("station-1", root.id(), new MockMultipartFile[]{
+                new MockMultipartFile("files", "a.png", "image/png", new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a})
+        })).isInstanceOf(Exception.class);
+
+        assertThat(storage.removed).hasSize(1);
+    }
+
+    @Test
+    void legacyImportRegeneratesFolderIdsInsteadOfOverwritingExistingFolders() throws Exception {
+        jdbc.update("INSERT INTO station_folder VALUES ('legacy-folder', 'station-1', NULL, '原目录', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+        String json = """
+                {"userStations":{"station-1":{"name":"红进塔","workshop":"north","folders":[{"id":"legacy-folder","name":"导入目录","images":[],"children":[]}]}}}
+                """;
+
+        stations.importLegacy(new MockMultipartFile("file", "legacy.json", "application/json", json.getBytes()));
+
+        assertThat(jdbc.queryForObject("SELECT name FROM station_folder WHERE id = 'legacy-folder'", String.class)).isEqualTo("原目录");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM station_folder", Integer.class)).isEqualTo(2);
+    }
+
+    @Test
+    void legacyImportRejectsFoldersDeeperThanThreeLevels() {
+        String json = """
+                {"userStations":{"station-1":{"name":"红进塔","workshop":"north","folders":[{"name":"1","children":[{"name":"2","children":[{"name":"3","children":[{"name":"4"}]}]}]}]}}}
+                """;
+
+        assertThatThrownBy(() -> stations.importLegacy(new MockMultipartFile("file", "legacy.json", "application/json", json.getBytes())))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("导入目录最多支持三级");
+    }
+
+    @Test
+    void legacyImportRemovesUploadedObjectsWhenLaterFolderFails() {
+        String json = """
+                {"userStations":{"station-1":{"name":"红进塔","workshop":"north","folders":[{"name":"1","images":[{"name":"a.png","dataUrl":"data:image/png;base64,iVBORw0KGgo="}],"children":[{"name":"2","children":[{"name":"3","children":[{"name":"4"}]}]}]}]}}}
+                """;
+
+        assertThatThrownBy(() -> stations.importLegacy(new MockMultipartFile("file", "legacy.json", "application/json", json.getBytes())))
+                .hasMessage("导入目录最多支持三级");
+        assertThat(storage.removed).hasSize(1);
     }
 
 
@@ -220,11 +268,16 @@ class StationServiceWorkshopTest {
 
     private static class NoopImageStorage implements ImageStorage {
         private byte[] lastUploadBytes;
+        private final java.util.List<String> removed = new java.util.ArrayList<>();
 
         @Override
-        public StoredObject upload(byte[] bytes, String contentType, String objectName) {
-            lastUploadBytes = bytes;
-            return new StoredObject("test", objectName, bytes.length, contentType);
+        public StoredObject upload(InputStream input, long size, String contentType, String objectName) {
+            try {
+                lastUploadBytes = input.readAllBytes();
+            } catch (java.io.IOException ex) {
+                throw new RuntimeException(ex);
+            }
+            return new StoredObject("test", objectName, size, contentType);
         }
 
         @Override
@@ -234,6 +287,7 @@ class StationServiceWorkshopTest {
 
         @Override
         public void remove(String bucket, String objectName) {
+            removed.add(bucket + "/" + objectName);
         }
     }
 }

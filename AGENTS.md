@@ -42,12 +42,14 @@ git fetch origin main
 git reset --hard origin/main
 
 cd deploy
-cp -n .env.example .env
+cp -n .env.production.example .env
 if grep -q '^FRONTEND_PORT=' .env; then
   sed -i 's/^FRONTEND_PORT=.*/FRONTEND_PORT=8012/' .env
 else
   printf '\nFRONTEND_PORT=8012\n' >> .env
 fi
+sed -i '/^COMPOSE_PROFILES=/d;/^FRONTEND_LEGACY_PORT=/d' .env
+docker rm -f datong-map-frontend-legacy 2>/dev/null || true
 docker compose up -d --build
 docker compose ps
 curl -fsS http://127.0.0.1:8012/ >/dev/null

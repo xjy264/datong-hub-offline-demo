@@ -1,20 +1,28 @@
 name: datong-map
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   mysql:
     image: mysql:8.0
     container_name: datong-map-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请配置MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-datong_map}
       MYSQL_USER: ${MYSQL_USER:-datong}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-datong123}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请配置MYSQL_PASSWORD}
       TZ: Asia/Shanghai
     ports:
       - "127.0.0.1:${MYSQL_PORT:-3311}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    mem_limit: 512m
+    logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_PASSWORD}\" mysqladmin ping -h127.0.0.1 -u\"$${MYSQL_USER}\" --silent"]
       interval: 10s
@@ -27,11 +35,13 @@ services:
     restart: unless-stopped
     command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-datongRedis123}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?请配置REDIS_PASSWORD}
     ports:
       - "127.0.0.1:${REDIS_PORT:-6381}:6379"
     volumes:
       - redis-data:/data
+    mem_limit: 128m
+    logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
       interval: 10s
@@ -43,14 +53,16 @@ services:
     container_name: datong-map-minio
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?请配置MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?请配置MINIO_ROOT_PASSWORD}
     command: server /data --console-address ":9001"
     ports:
       - "127.0.0.1:${MINIO_API_PORT:-9011}:9000"
       - "127.0.0.1:${MINIO_CONSOLE_PORT:-9012}:9001"
     volumes:
       - minio-data:/data
+    mem_limit: 384m
+    logging: *default-logging
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 10s
@@ -74,19 +86,26 @@ services:
       SERVER_PORT: 8011
       MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-datong_map}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
       MYSQL_USER: ${MYSQL_USER:-datong}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-datong123}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请配置MYSQL_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-datongRedis123}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?请配置REDIS_PASSWORD}
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?请配置MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?请配置MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-datong-map}
-      JWT_SECRET: ${JWT_SECRET:-LocalDevelopmentJwtSecretMustBeChangedBeforeDeployment2026}
+      JWT_SECRET: ${JWT_SECRET:?请配置JWT_SECRET}
+      APP_PRODUCTION: ${APP_PRODUCTION:-false}
+      BOOTSTRAP_ADMIN_PHONE: ${BOOTSTRAP_ADMIN_PHONE:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
-      CAPTCHA_PROVIDER: ${CAPTCHA_PROVIDER:-none}
+      MAX_FILE_SIZE: 20MB
+      MAX_REQUEST_SIZE: 100MB
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8011}:8011"
+    mem_limit: 768m
+    logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8011/actuator/health >/dev/null || exit 1"]
       interval: 15s
@@ -104,22 +123,8 @@ services:
         condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-8012}:80"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-
-  frontend-legacy:
-    image: datong-map-frontend
-    container_name: datong-map-frontend-legacy
-    restart: unless-stopped
-    profiles: ["legacy-port"]
-    depends_on:
-      frontend:
-        condition: service_healthy
-    ports:
-      - "${FRONTEND_LEGACY_PORT:-8012}:80"
+    mem_limit: 64m
+    logging: *default-logging
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
       interval: 15s

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { apiDelete, apiGet, apiPost, apiPut } from '../api/http'
 import type { MapDetail, MapInterval, MapMarker, MapSummary, Station, StationFolder, StationImage, Workshop } from '../types'
+import { splitUploadBatches } from '../utils/uploadBatches'
 
 export const useMapStore = defineStore('map', {
   state: () => ({
@@ -8,7 +9,8 @@ export const useMapStore = defineStore('map', {
     currentMap: null as MapDetail | null,
     stations: [] as Station[],
     workshops: [] as Workshop[],
-    loading: false
+    loading: false,
+    uploadProgress: null as { completed: number; total: number } | null
   }),
   getters: {
     stationById: (state) => (id: string) => state.stations.find((item) => item.id === id),
@@ -43,7 +45,7 @@ export const useMapStore = defineStore('map', {
       const form = new FormData()
       form.append('name', name)
       form.append('file', file)
-      const created = await apiPost<MapDetail>('/maps', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const created = await apiPost<MapDetail>('/maps', form, { timeout: 300000 })
       this.maps = await apiGet<MapSummary[]>('/maps')
       this.currentMap = created
       this.stations = created.stations
@@ -130,11 +132,20 @@ export const useMapStore = defineStore('map', {
       else await this.load(true)
     },
     async uploadImages(stationId: string, folderId: string, files: FileList | File[]) {
-      const form = new FormData()
-      Array.from(files).forEach((file) => form.append('files', file))
-      await apiPost<StationImage[]>(`/stations/${stationId}/folders/${folderId}/images`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
-      if (this.currentMap) await this.loadMap(this.currentMap.id)
-      else await this.load(true)
+      const batches = splitUploadBatches(files)
+      this.uploadProgress = { completed: 0, total: batches.length }
+      try {
+        for (const batch of batches) {
+          const form = new FormData()
+          batch.forEach((file) => form.append('files', file))
+          await apiPost<StationImage[]>(`/stations/${stationId}/folders/${folderId}/images`, form, { timeout: 300000 })
+          this.uploadProgress.completed++
+        }
+        if (this.currentMap) await this.loadMap(this.currentMap.id)
+        else await this.load(true)
+      } finally {
+        this.uploadProgress = null
+      }
     },
     async deleteImage(imageId: string) {
       await apiDelete(`/images/${imageId}`)

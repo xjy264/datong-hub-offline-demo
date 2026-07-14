@@ -17,7 +17,7 @@ class MapDocumentControllerTest {
 
     private static class FakeMapDocumentService extends MapDocumentService {
         FakeMapDocumentService() {
-            super(null, null, null, null);
+            super(null, null, null, null, null);
         }
 
         @Override

@@ -9,12 +9,14 @@ import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 
 @Service
 public class MinioImageStorage implements ImageStorage {
+    private static final Logger log = LoggerFactory.getLogger(MinioImageStorage.class);
     private static final String STORAGE_UNAVAILABLE = "文件存储服务暂时不可用，请稍后重试或联系管理员。";
     private final MinioClient minioClient;
     private final String bucket;
@@ -25,17 +27,18 @@ public class MinioImageStorage implements ImageStorage {
     }
 
     @Override
-    public StoredObject upload(byte[] bytes, String contentType, String objectName) {
+    public StoredObject upload(InputStream input, long size, String contentType, String objectName) {
         try {
             ensureBucket();
             minioClient.putObject(PutObjectArgs.builder()
                     .bucket(bucket)
                     .object(objectName)
                     .contentType(contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType)
-                    .stream(new ByteArrayInputStream(bytes), bytes.length, -1)
+                    .stream(input, size, -1)
                     .build());
-            return new StoredObject(bucket, objectName, bytes.length, contentType);
+            return new StoredObject(bucket, objectName, size, contentType);
         } catch (Exception ex) {
+            log.error("MinIO upload failed: {}", objectName, ex);
             throw new BusinessException(STORAGE_UNAVAILABLE);
         }
     }
@@ -45,6 +48,7 @@ public class MinioImageStorage implements ImageStorage {
         try {
             return minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(objectName).build());
         } catch (Exception ex) {
+            log.error("MinIO open failed: {}/{}", bucket, objectName, ex);
             throw new BusinessException(STORAGE_UNAVAILABLE);
         }
     }
@@ -54,6 +58,7 @@ public class MinioImageStorage implements ImageStorage {
         try {
             minioClient.removeObject(RemoveObjectArgs.builder().bucket(bucket).object(objectName).build());
         } catch (Exception ex) {
+            log.error("MinIO remove failed: {}/{}", bucket, objectName, ex);
             throw new BusinessException(STORAGE_UNAVAILABLE);
         }
     }

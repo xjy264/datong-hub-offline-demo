@@ -12,40 +12,26 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-    private final CaptchaService captchaService;
     private final AuthService authService;
     private final boolean cookieSecure;
     private final long jwtExpireSeconds;
     private final SecureRandom random = new SecureRandom();
 
-    public AuthController(CaptchaService captchaService, AuthService authService,
+    public AuthController(AuthService authService,
                           @Value("${app.auth.cookie-secure:false}") boolean cookieSecure,
                           @Value("${app.jwt.expire-seconds:86400}") long jwtExpireSeconds) {
-        this.captchaService = captchaService;
         this.authService = authService;
         this.cookieSecure = cookieSecure;
         this.jwtExpireSeconds = jwtExpireSeconds;
-    }
-
-    @RequestMapping(value = "/captcha", method = {RequestMethod.GET, RequestMethod.POST})
-    public ApiResponse<Map<String, Object>> captcha() {
-        return ApiResponse.success(captchaService.create());
-    }
-
-    @PostMapping("/captcha/check")
-    public ApiResponse<Map<String, String>> checkCaptcha(@RequestBody(required = false) CaptchaCheckRequest request) {
-        return ApiResponse.success(captchaService.check(request == null ? null : request.id()));
     }
 
     @PostMapping("/register")

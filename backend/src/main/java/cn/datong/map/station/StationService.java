@@ -10,6 +10,7 @@ import cn.datong.map.station.StationDtos.StationImageView;
 import cn.datong.map.station.StationDtos.StationView;
 import cn.datong.map.storage.ImageStorage;
 import cn.datong.map.storage.StoredObject;
+import cn.datong.map.storage.UploadPolicy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.io.InputStreamResource;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -36,12 +38,15 @@ public class StationService {
     private final ImageStorage storage;
     private final ObjectMapper objectMapper;
     private final WorkshopService workshops;
+    private final UploadPolicy uploadPolicy;
 
-    public StationService(JdbcTemplate jdbcTemplate, ImageStorage storage, ObjectMapper objectMapper, WorkshopService workshops) {
+    public StationService(JdbcTemplate jdbcTemplate, ImageStorage storage, ObjectMapper objectMapper, WorkshopService workshops,
+                          UploadPolicy uploadPolicy) {
         this.jdbcTemplate = jdbcTemplate;
         this.storage = storage;
         this.objectMapper = objectMapper;
         this.workshops = workshops;
+        this.uploadPolicy = uploadPolicy;
     }
 
     public List<StationView> listStations() {
@@ -170,12 +175,20 @@ public class StationService {
         requireStation(stationId);
         FolderRow folder = requireFolder(folderId);
         if (!stationId.equals(folder.stationId())) throw new BusinessException("目录不属于当前站点");
+        uploadPolicy.validateBatch(files);
         List<StationImageView> uploaded = new ArrayList<>();
-        for (MultipartFile file : files) {
-            if (file == null || file.isEmpty() || file.getContentType() == null || !file.getContentType().startsWith("image/")) {
-                continue;
+        List<StoredObject> storedObjects = new ArrayList<>();
+        try {
+            for (MultipartFile file : files) {
+                String contentType = uploadPolicy.validateImage(file);
+                SaveResult result = saveImage(stationId, folderId, file.getOriginalFilename(), contentType,
+                        file.getInputStream(), file.getSize());
+                storedObjects.add(result.object());
+                uploaded.add(result.view());
             }
-            uploaded.add(saveImage(stationId, folderId, file.getOriginalFilename(), file.getContentType(), file.getBytes()));
+        } catch (Exception ex) {
+            storedObjects.forEach(this::removeQuietly);
+            throw ex;
         }
         return uploaded;
     }
@@ -199,24 +212,32 @@ public class StationService {
 
     @Transactional
     public void importLegacy(MultipartFile file) throws Exception {
-        JsonNode root = objectMapper.readTree(file.getInputStream());
-        JsonNode userStations = root.path("userStations");
-        if (!userStations.isObject()) throw new BusinessException("导入文件不匹配");
-        userStations.fields().forEachRemaining(entry -> importStation(entry.getKey(), entry.getValue()));
+        uploadPolicy.validateLegacyImport(file);
+        List<StoredObject> storedObjects = new ArrayList<>();
+        try {
+            JsonNode root = objectMapper.readTree(file.getInputStream());
+            JsonNode userStations = root.path("userStations");
+            if (!userStations.isObject()) throw new BusinessException("导入文件不匹配");
+            userStations.fields().forEachRemaining(entry -> importStation(entry.getKey(), entry.getValue(), storedObjects));
+        } catch (Exception ex) {
+            storedObjects.forEach(this::removeQuietly);
+            throw ex;
+        }
     }
 
-    private void importStation(String stationId, JsonNode node) {
+    private void importStation(String stationId, JsonNode node, List<StoredObject> storedObjects) {
         if (!stationExists(stationId)) return;
         updateProfile(stationId, new ProfileRequest(text(node, "name"), text(node, "notes"), workshops.publicId(text(node, "workshop"))));
         JsonNode folders = node.path("folders");
         if (folders.isArray()) {
-            for (JsonNode folder : folders) importFolder(stationId, null, folder, 0);
+            for (JsonNode folder : folders) importFolder(stationId, null, folder, 0, 1, storedObjects);
         }
     }
 
-    private void importFolder(String stationId, String parentId, JsonNode node, int order) {
-        String folderId = text(node, "id");
-        if (folderId == null || folderId.isBlank()) folderId = "folder-" + UUID.randomUUID();
+    private void importFolder(String stationId, String parentId, JsonNode node, int order, int depth,
+                              List<StoredObject> storedObjects) {
+        if (depth > 3) throw new BusinessException("导入目录最多支持三级");
+        String folderId = "folder-" + UUID.randomUUID();
         jdbcTemplate.update("""
                 INSERT INTO station_folder (id, station_id, parent_id, name, sort_order, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -228,26 +249,41 @@ public class StationService {
                 String dataUrl = text(image, "dataUrl");
                 if (dataUrl != null && dataUrl.startsWith("data:")) {
                     LegacyImage legacy = LegacyImage.fromDataUrl(text(image, "name"), dataUrl);
-                    saveImage(stationId, folderId, legacy.name(), legacy.contentType(), legacy.bytes());
+                    String contentType = uploadPolicy.validateImageBytes(legacy.bytes(), legacy.contentType());
+                    SaveResult result = saveImage(stationId, folderId, legacy.name(), contentType,
+                            new ByteArrayInputStream(legacy.bytes()), legacy.bytes().length);
+                    storedObjects.add(result.object());
                 }
             }
         }
         JsonNode children = node.path("children");
         if (children.isArray()) {
             int index = 0;
-            for (JsonNode child : children) importFolder(stationId, folderId, child, index++);
+            for (JsonNode child : children) importFolder(stationId, folderId, child, index++, depth + 1, storedObjects);
         }
     }
 
-    private StationImageView saveImage(String stationId, String folderId, String name, String contentType, byte[] bytes) {
+    private SaveResult saveImage(String stationId, String folderId, String name, String contentType, InputStream input, long size) {
         String id = "image-" + UUID.randomUUID();
         String safeName = safeName(name);
-        StoredObject object = storage.upload(bytes, contentType, "stations/%s/%s/%s-%s".formatted(stationId, folderId, id, safeName));
-        jdbcTemplate.update("""
-                INSERT INTO station_image (id, station_id, folder_id, name, content_type, size_bytes, bucket, object_name, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, id, stationId, folderId, safeName, object.contentType(), object.size(), object.bucket(), object.objectName());
-        return new StationImageView(id, safeName, object.contentType(), object.size(), LocalDateTime.now(), "/api/images/" + id);
+        StoredObject object = storage.upload(input, size, contentType, "stations/%s/%s/%s-%s".formatted(stationId, folderId, id, safeName));
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO station_image (id, station_id, folder_id, name, content_type, size_bytes, bucket, object_name, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """, id, stationId, folderId, safeName, object.contentType(), object.size(), object.bucket(), object.objectName());
+        } catch (RuntimeException ex) {
+            removeQuietly(object);
+            throw ex;
+        }
+        return new SaveResult(new StationImageView(id, safeName, object.contentType(), object.size(), LocalDateTime.now(), "/api/images/" + id), object);
+    }
+
+    private void removeQuietly(StoredObject object) {
+        try {
+            storage.remove(object.bucket(), object.objectName());
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private void requireStation(String stationId) {
@@ -334,6 +370,9 @@ public class StationService {
     }
 
     private record ImageRow(String id, String name, String contentType, String bucket, String objectName) {
+    }
+
+    private record SaveResult(StationImageView view, StoredObject object) {
     }
 
     private record StationMutable(String id, String name, String autoName, String type, String color, String line,

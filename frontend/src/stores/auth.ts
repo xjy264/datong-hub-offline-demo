@@ -16,7 +16,8 @@ export const useAuthStore = defineStore('auth', {
     initialized: false
   }),
   getters: {
-    isAuthenticated: (state) => Boolean(state.user)
+    isAuthenticated: (state) => Boolean(state.user),
+    canManageUsers: (state) => state.permissions.includes('USER_ADMIN')
   },
   actions: {
     setSession(user: LoginUser, permissions: string[]) {

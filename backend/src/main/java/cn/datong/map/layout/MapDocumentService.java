@@ -16,6 +16,7 @@ import cn.datong.map.station.StationDtos.StationView;
 import cn.datong.map.station.WorkshopService;
 import cn.datong.map.storage.ImageStorage;
 import cn.datong.map.storage.StoredObject;
+import cn.datong.map.storage.UploadPolicy;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -41,12 +43,15 @@ public class MapDocumentService {
     private final ImageStorage storage;
     private final PdfFirstPageRenderer pdfRenderer;
     private final WorkshopService workshops;
+    private final UploadPolicy uploadPolicy;
 
-    public MapDocumentService(JdbcTemplate jdbcTemplate, ImageStorage storage, PdfFirstPageRenderer pdfRenderer, WorkshopService workshops) {
+    public MapDocumentService(JdbcTemplate jdbcTemplate, ImageStorage storage, PdfFirstPageRenderer pdfRenderer,
+                              WorkshopService workshops, UploadPolicy uploadPolicy) {
         this.jdbcTemplate = jdbcTemplate;
         this.storage = storage;
         this.pdfRenderer = pdfRenderer;
         this.workshops = workshops;
+        this.uploadPolicy = uploadPolicy;
     }
 
     public List<MapSummary> listMaps() {
@@ -76,22 +81,28 @@ public class MapDocumentService {
     @Transactional
     public MapDetail createMap(CurrentUser user, String name, MultipartFile pdf) throws Exception {
         requireAdmin(user);
-        if (pdf == null || pdf.isEmpty()) {
-            throw new BusinessException("请上传 PDF 文件");
-        }
+        uploadPolicy.validatePdf(pdf);
         byte[] pdfBytes = pdf.getBytes();
         PdfFirstPageRenderer.RenderedPage page = pdfRenderer.render(pdfBytes);
         String id = "map-" + UUID.randomUUID();
         String pdfName = "maps/%s/source.pdf".formatted(id);
         String pngName = "maps/%s/background.png".formatted(id);
-        StoredObject pdfObject = storage.upload(pdfBytes, "application/pdf", pdfName);
-        StoredObject pngObject = storage.upload(page.pngBytes(), "image/png", pngName);
-        jdbcTemplate.update("""
-                INSERT INTO map_document (id, name, pdf_bucket, pdf_object_name, background_bucket, background_object_name,
-                                          background_url, width, height, created_by, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, id, defaultName(name), pdfObject.bucket(), pdfObject.objectName(), pngObject.bucket(), pngObject.objectName(),
-                "/api/maps/" + id + "/background", page.width(), page.height(), user.userId());
+        List<StoredObject> stored = new ArrayList<>();
+        try {
+            StoredObject pdfObject = storage.upload(new ByteArrayInputStream(pdfBytes), pdfBytes.length, "application/pdf", pdfName);
+            stored.add(pdfObject);
+            StoredObject pngObject = storage.upload(new ByteArrayInputStream(page.pngBytes()), page.pngBytes().length, "image/png", pngName);
+            stored.add(pngObject);
+            jdbcTemplate.update("""
+                    INSERT INTO map_document (id, name, pdf_bucket, pdf_object_name, background_bucket, background_object_name,
+                                              background_url, width, height, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    """, id, defaultName(name), pdfObject.bucket(), pdfObject.objectName(), pngObject.bucket(), pngObject.objectName(),
+                    "/api/maps/" + id + "/background", page.width(), page.height(), user.userId());
+        } catch (RuntimeException ex) {
+            stored.forEach(object -> removeObjectQuietly(object.bucket(), object.objectName()));
+            throw ex;
+        }
         return detail(id);
     }
 
@@ -272,6 +283,13 @@ public class MapDocumentService {
     private void removeObject(String bucket, String objectName) {
         if (bucket != null && !bucket.isBlank() && objectName != null && !objectName.isBlank()) {
             storage.remove(bucket, objectName);
+        }
+    }
+
+    private void removeObjectQuietly(String bucket, String objectName) {
+        try {
+            removeObject(bucket, objectName);
+        } catch (RuntimeException ignored) {
         }
     }
 
