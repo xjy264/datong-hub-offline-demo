@@ -54,7 +54,7 @@ class AuthTransportSecurityTest {
     }
 
     private AuthService.LoginResult loginResult() {
-        AuthUser user = new AuthUser(1L, "admin", "13800138000", "管理员", true);
-        return new AuthService.LoginResult("token", new AuthSessionResponse(user, Set.of("MAP_EDIT", "USER_ADMIN")));
+        AuthUser user = new AuthUser(1L, "admin", "13800138000", "管理员");
+        return new AuthService.LoginResult("token", new AuthSessionResponse(user, Set.of("MAP_EDIT")));
     }
 }

@@ -33,26 +33,23 @@ public class AuthService {
         }
         jdbcTemplate.update("""
                 INSERT INTO sys_user (username, password, real_name, phone, status, approval_status, is_super_admin, deleted, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'ENABLED', 'PENDING', 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, 'ENABLED', 'APPROVED', 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, phone, passwordEncoder.encode(request.password()), realName, phone);
     }
 
     public LoginResult login(LoginRequest request) {
         String phone = request.phone().trim();
         List<UserRow> users = jdbcTemplate.query("""
-                SELECT id, username, password, real_name, phone, status, approval_status, is_super_admin, deleted
+                SELECT id, username, password, real_name, phone, status, approval_status, deleted
                 FROM sys_user WHERE phone = ? OR username = ? LIMIT 1
                 """, (rs, rowNum) -> new UserRow(
                 rs.getLong("id"), rs.getString("username"), rs.getString("password"), rs.getString("real_name"),
-                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getBoolean("is_super_admin"), rs.getInt("deleted")
+                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getInt("deleted")
         ), phone, phone);
         if (users.isEmpty() || users.getFirst().deleted() == 1 || !passwordEncoder.matches(request.password(), users.getFirst().password())) {
             throw new BusinessException("手机号或密码错误");
         }
         UserRow user = users.getFirst();
-        if ("PENDING".equals(user.approvalStatus())) {
-            throw new BusinessException("账号待管理员审核");
-        }
         if (!"APPROVED".equals(user.approvalStatus()) || !"ENABLED".equals(user.status())) {
             throw new BusinessException("账号已禁用，请联系管理员");
         }
@@ -63,11 +60,11 @@ public class AuthService {
 
     public AuthSessionResponse currentSession(Long userId) {
         List<UserRow> users = jdbcTemplate.query("""
-                SELECT id, username, password, real_name, phone, status, approval_status, is_super_admin, deleted
+                SELECT id, username, password, real_name, phone, status, approval_status, deleted
                 FROM sys_user WHERE id = ? LIMIT 1
                 """, (rs, rowNum) -> new UserRow(
                 rs.getLong("id"), rs.getString("username"), rs.getString("password"), rs.getString("real_name"),
-                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getBoolean("is_super_admin"), rs.getInt("deleted")
+                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getInt("deleted")
         ), userId);
         if (users.isEmpty() || users.getFirst().deleted() == 1) {
             throw new BusinessException("用户不存在");
@@ -77,8 +74,8 @@ public class AuthService {
 
     private AuthSessionResponse session(UserRow user) {
         return new AuthSessionResponse(
-                new AuthUser(user.id(), user.username(), user.phone(), user.realName(), user.superAdmin()),
-                user.superAdmin() ? Set.of("MAP_EDIT", "USER_ADMIN") : Set.of("MAP_EDIT")
+                new AuthUser(user.id(), user.username(), user.phone(), user.realName()),
+                Set.of("MAP_EDIT")
         );
     }
 
@@ -86,6 +83,6 @@ public class AuthService {
     }
 
     private record UserRow(Long id, String username, String password, String realName, String phone,
-                           String status, String approvalStatus, boolean superAdmin, int deleted) {
+                           String status, String approvalStatus, int deleted) {
     }
 }

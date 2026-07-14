@@ -25,21 +25,16 @@ class AuthServiceTest {
     }
 
     @Test
-    void registerCreatesPendingNonAdminUser() {
+    void registerCreatesApprovedUserWhoCanLoginImmediately() {
         service.register(new RegisterRequest("张三", "13800138000", "Aa1!aaaa", "Aa1!aaaa"));
 
         assertThat(jdbc.queryForObject("SELECT status FROM sys_user WHERE phone = '13800138000'", String.class)).isEqualTo("ENABLED");
-        assertThat(jdbc.queryForObject("SELECT approval_status FROM sys_user WHERE phone = '13800138000'", String.class)).isEqualTo("PENDING");
+        assertThat(jdbc.queryForObject("SELECT approval_status FROM sys_user WHERE phone = '13800138000'", String.class)).isEqualTo("APPROVED");
         assertThat(jdbc.queryForObject("SELECT is_super_admin FROM sys_user WHERE phone = '13800138000'", Integer.class)).isZero();
-        assertThatThrownBy(() -> service.login(new LoginRequest("13800138000", "Aa1!aaaa")))
-                .isInstanceOf(BusinessException.class)
-                .hasMessage("账号待管理员审核");
 
-        jdbc.update("UPDATE sys_user SET approval_status = 'APPROVED' WHERE phone = '13800138000'");
         AuthService.LoginResult result = service.login(new LoginRequest("13800138000", "Aa1!aaaa"));
         assertThat(result.session().user().phone()).isEqualTo("13800138000");
         assertThat(result.session().user().realName()).isEqualTo("张三");
-        assertThat(result.session().user().isSuperAdmin()).isFalse();
         assertThat(result.session().permissions()).containsExactly("MAP_EDIT");
     }
 

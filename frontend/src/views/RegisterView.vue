@@ -2,7 +2,7 @@
   <div class="auth-page">
     <section class="auth-brand">
       <h1>账号注册</h1>
-      <p>提交申请后由管理员审核，审核通过即可登录。</p>
+      <p>注册成功后即可登录使用。</p>
     </section>
     <section class="auth-panel">
       <h2>注册账号</h2>
@@ -40,7 +40,7 @@ async function submit() {
   loading.value = true
   try {
     await apiPost('/auth/register', { ...form, realName, phone })
-    ElMessage.success('注册申请已提交，请等待管理员审核')
+    ElMessage.success('注册成功，请登录')
     router.push('/login')
   } finally {
     loading.value = false

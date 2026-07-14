@@ -5,7 +5,6 @@
         <h1>大同房建公寓段管辖示意图</h1>
       </div>
       <div class="top-actions">
-        <el-button v-if="auth.canManageUsers" plain @click="router.push('/admin/users')">用户管理</el-button>
         <el-button type="danger" plain @click="logout">退出登录</el-button>
       </div>
     </header>
