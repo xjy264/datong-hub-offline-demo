@@ -18,12 +18,12 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
-    void loadsDatabaseAdminFlagAndAuthorities() throws Exception {
+    void loadsApprovedEnabledUserWithEditorAuthority() throws Exception {
         JdbcDataSource dataSource = new JdbcDataSource();
         dataSource.setURL("jdbc:h2:mem:" + System.nanoTime() + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1");
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE sys_user (id BIGINT PRIMARY KEY, status VARCHAR(32), approval_status VARCHAR(32), is_super_admin TINYINT, deleted TINYINT)");
-        jdbc.update("INSERT INTO sys_user VALUES (7, 'ENABLED', 'APPROVED', 0, 0)");
+        jdbc.update("INSERT INTO sys_user VALUES (7, 'ENABLED', 'APPROVED', 1, 0)");
         JwtTokenProvider tokens = new JwtTokenProvider("01234567890123456789012345678901", 86400);
         JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tokens, jdbc);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/maps");
@@ -32,7 +32,7 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, new MockHttpServletResponse(), (req, response) -> { });
 
         CurrentUser user = (CurrentUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        assertThat(user.superAdmin()).isFalse();
+        assertThat(user.userId()).isEqualTo(7L);
         assertThat(SecurityContextHolder.getContext().getAuthentication().getAuthorities())
                 .extracting("authority")
                 .containsExactly("ROLE_EDITOR");

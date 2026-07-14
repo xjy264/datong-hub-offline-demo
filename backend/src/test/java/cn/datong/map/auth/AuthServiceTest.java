@@ -35,7 +35,6 @@ class AuthServiceTest {
         AuthService.LoginResult result = service.login(new LoginRequest("13800138000", "Aa1!aaaa"));
         assertThat(result.session().user().phone()).isEqualTo("13800138000");
         assertThat(result.session().user().realName()).isEqualTo("张三");
-        assertThat(result.session().user().isSuperAdmin()).isFalse();
         assertThat(result.session().permissions()).containsExactly("MAP_EDIT");
     }
 

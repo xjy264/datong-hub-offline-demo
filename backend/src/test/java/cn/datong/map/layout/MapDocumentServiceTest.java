@@ -47,8 +47,8 @@ class MapDocumentServiceTest {
 
     @Test
     void allowsMultipleMarkersForOneStation() {
-        service.createMarker(new CurrentUser(1L, true), "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7));
-        service.createMarker(new CurrentUser(1L, true), "default-map", new MapDtos.MarkerRequest("xinzhou", 30, 40, 7));
+        service.createMarker(new CurrentUser(1L), "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7));
+        service.createMarker(new CurrentUser(1L), "default-map", new MapDtos.MarkerRequest("xinzhou", 30, 40, 7));
 
         MapDtos.MapDetail detail = service.detail("default-map");
 
@@ -61,8 +61,8 @@ class MapDocumentServiceTest {
 
     @Test
     void markerUsesLatestSharedStationProfile() {
-        service.createMarker(new CurrentUser(1L, true), "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7));
-        service.createMarker(new CurrentUser(1L, true), "default-map", new MapDtos.MarkerRequest("xinzhou", 30, 40, 7));
+        service.createMarker(new CurrentUser(1L), "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7));
+        service.createMarker(new CurrentUser(1L), "default-map", new MapDtos.MarkerRequest("xinzhou", 30, 40, 7));
         jdbc.update("INSERT INTO station_profile (station_id, name, notes, workshop_id) VALUES ('xinzhou', '新忻州站', '', 'north')");
 
         MapDtos.MapDetail detail = service.detail("default-map");
@@ -72,17 +72,17 @@ class MapDocumentServiceTest {
 
     @Test
     void deletingMarkerDoesNotDeleteStation() {
-        MapDtos.MarkerView marker = service.createMarker(new CurrentUser(1L, true), "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7));
+        MapDtos.MarkerView marker = service.createMarker(new CurrentUser(1L), "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7));
 
-        service.deleteMarker(new CurrentUser(1L, true), "default-map", marker.id());
+        service.deleteMarker(new CurrentUser(1L), "default-map", marker.id());
 
         assertThat(service.detail("default-map").markers()).isEmpty();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM map_station WHERE id = 'xinzhou'", Integer.class)).isEqualTo(1);
     }
 
     @Test
-    void adminCanRenameMap() {
-        MapDtos.MapSummary renamed = service.renameMap(new CurrentUser(1L, true), "default-map", new MapDtos.MapNameRequest("  新地图名  "));
+    void authenticatedUserCanRenameMap() {
+        MapDtos.MapSummary renamed = service.renameMap(new CurrentUser(1L), "default-map", new MapDtos.MapNameRequest("  新地图名  "));
 
         assertThat(renamed.name()).isEqualTo("新地图名");
         assertThat(service.detail("default-map").name()).isEqualTo("新地图名");
@@ -95,7 +95,7 @@ class MapDocumentServiceTest {
         jdbc.update("INSERT INTO map_document VALUES ('uploaded-map', '上传地图', 'test', 'maps/uploaded/source.pdf', 'test', 'maps/uploaded/background.png', '/api/maps/uploaded-map/background', 100, 100, 1, CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO map_marker VALUES ('marker-1', 'uploaded-map', 'xinzhou', 10, 20, 8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
 
-        service.deleteMap(new CurrentUser(1L, true), "uploaded-map");
+        service.deleteMap(new CurrentUser(1L), "uploaded-map");
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM map_document WHERE id = 'uploaded-map'", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM map_marker WHERE map_id = 'uploaded-map'", Integer.class)).isZero();
@@ -104,7 +104,7 @@ class MapDocumentServiceTest {
 
     @Test
     void cannotDeleteLastMap() {
-        assertThatThrownBy(() -> service.deleteMap(new CurrentUser(1L, true), "default-map"))
+        assertThatThrownBy(() -> service.deleteMap(new CurrentUser(1L), "default-map"))
                 .isInstanceOf(cn.datong.map.common.BusinessException.class)
                 .hasMessage("至少保留一张地图");
     }
@@ -115,7 +115,7 @@ class MapDocumentServiceTest {
         storage.failOnUpload = 2;
         service = new MapDocumentService(jdbc, storage, new PdfFirstPageRenderer(), new WorkshopService(jdbc), new UploadPolicy());
 
-        assertThatThrownBy(() -> service.createMap(new CurrentUser(1L, true), "地图", new MockMultipartFile(
+        assertThatThrownBy(() -> service.createMap(new CurrentUser(1L), "地图", new MockMultipartFile(
                 "file", "map.pdf", "application/pdf", onePagePdf())))
                 .isInstanceOf(RuntimeException.class);
 
@@ -123,8 +123,8 @@ class MapDocumentServiceTest {
     }
 
     @Test
-    void loginUserCanMutateLayoutWithoutAdminFlag() {
-        CurrentUser user = new CurrentUser(2L, false);
+    void authenticatedUserCanMutateLayout() {
+        CurrentUser user = new CurrentUser(2L);
         jdbc.update("INSERT INTO map_document VALUES ('uploaded-map', '上传地图', NULL, NULL, NULL, NULL, '/api/maps/uploaded-map/background', 100, 100, 1, CURRENT_TIMESTAMP)");
 
         MapDtos.MarkerView marker = service.createMarker(user, "default-map", new MapDtos.MarkerRequest("xinzhou", 10, 20, 7));
@@ -142,7 +142,7 @@ class MapDocumentServiceTest {
         jdbc.update("INSERT INTO map_marker VALUES ('marker-a', 'default-map', 'xinzhou', 10, 20, 4.4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO map_marker VALUES ('marker-b', 'default-map', 'meijiazhuang', 110, 20, 4.4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
 
-        MapDtos.IntervalView created = service.createInterval(new CurrentUser(2L, false), "default-map",
+        MapDtos.IntervalView created = service.createInterval(new CurrentUser(2L), "default-map",
                 new MapDtos.IntervalRequest("marker-a", "marker-b", List.of("茶坞K220+550基站", "茶坞东K221+550基站")));
 
         assertThat(created.markerAId()).isEqualTo("marker-a");
@@ -150,11 +150,11 @@ class MapDocumentServiceTest {
         assertThat(created.baseStations()).containsExactly("茶坞K220+550基站", "茶坞东K221+550基站");
         assertThat(service.detail("default-map").intervals()).containsExactly(created);
 
-        MapDtos.IntervalView updated = service.updateInterval(new CurrentUser(2L, false), "default-map", created.id(),
+        MapDtos.IntervalView updated = service.updateInterval(new CurrentUser(2L), "default-map", created.id(),
                 new MapDtos.IntervalRequest("marker-a", "marker-b", List.of("茶坞西K550+551基站")));
         assertThat(updated.baseStations()).containsExactly("茶坞西K550+551基站");
 
-        service.deleteInterval(new CurrentUser(2L, false), "default-map", created.id());
+        service.deleteInterval(new CurrentUser(2L), "default-map", created.id());
         assertThat(service.detail("default-map").intervals()).isEmpty();
     }
 
@@ -162,7 +162,7 @@ class MapDocumentServiceTest {
     void rejectsIntervalWithSameStationButtonAtBothEnds() {
         jdbc.update("INSERT INTO map_marker VALUES ('marker-a', 'default-map', 'xinzhou', 10, 20, 4.4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
 
-        assertThatThrownBy(() -> service.createInterval(new CurrentUser(2L, false), "default-map",
+        assertThatThrownBy(() -> service.createInterval(new CurrentUser(2L), "default-map",
                 new MapDtos.IntervalRequest("marker-a", "marker-a", List.of("基站"))))
                 .isInstanceOf(cn.datong.map.common.BusinessException.class)
                 .hasMessage("请选择两个不同的车站按钮");

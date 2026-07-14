@@ -33,14 +33,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Long userId = jwtTokenProvider.parseUserId(token);
                 List<CurrentUser> users = jdbcTemplate.query("""
-                        SELECT id, is_super_admin FROM sys_user
+                        SELECT id FROM sys_user
                         WHERE id = ? AND deleted = 0 AND status = 'ENABLED' AND approval_status = 'APPROVED'
-                        """, (rs, rowNum) -> new CurrentUser(rs.getLong("id"), rs.getBoolean("is_super_admin")), userId);
+                        """, (rs, rowNum) -> new CurrentUser(rs.getLong("id")), userId);
                 if (!users.isEmpty()) {
                     CurrentUser user = users.getFirst();
-                    List<SimpleGrantedAuthority> authorities = user.superAdmin()
-                            ? List.of(new SimpleGrantedAuthority("ROLE_EDITOR"), new SimpleGrantedAuthority("ROLE_ADMIN"))
-                            : List.of(new SimpleGrantedAuthority("ROLE_EDITOR"));
+                    List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_EDITOR"));
                     SecurityContextHolder.getContext().setAuthentication(
                             new UsernamePasswordAuthenticationToken(user, null, authorities));
                 }

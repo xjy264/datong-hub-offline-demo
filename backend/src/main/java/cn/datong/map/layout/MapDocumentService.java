@@ -80,7 +80,7 @@ public class MapDocumentService {
 
     @Transactional
     public MapDetail createMap(CurrentUser user, String name, MultipartFile pdf) throws Exception {
-        requireAdmin(user);
+        requireAuthenticated(user);
         uploadPolicy.validatePdf(pdf);
         byte[] pdfBytes = pdf.getBytes();
         PdfFirstPageRenderer.RenderedPage page = pdfRenderer.render(pdfBytes);
@@ -108,7 +108,7 @@ public class MapDocumentService {
 
     @Transactional
     public MapSummary renameMap(CurrentUser user, String mapId, MapNameRequest request) {
-        requireAdmin(user);
+        requireAuthenticated(user);
         requireMap(mapId);
         jdbcTemplate.update("UPDATE map_document SET name = ? WHERE id = ?", defaultName(request == null ? null : request.name()), mapId);
         return mapSummary(mapId);
@@ -116,7 +116,7 @@ public class MapDocumentService {
 
     @Transactional
     public void deleteMap(CurrentUser user, String mapId) {
-        requireAdmin(user);
+        requireAuthenticated(user);
         MapRow map = requireMap(mapId);
         Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM map_document", Integer.class);
         if (count == null || count <= 1) {
@@ -130,7 +130,7 @@ public class MapDocumentService {
 
     @Transactional
     public MarkerView createMarker(CurrentUser user, String mapId, MarkerRequest request) {
-        requireAdmin(user);
+        requireAuthenticated(user);
         requireMap(mapId);
         requireStation(request.stationId());
         String id = "marker-" + UUID.randomUUID();
@@ -143,7 +143,7 @@ public class MapDocumentService {
 
     @Transactional
     public MarkerView updateMarker(CurrentUser user, String mapId, String markerId, MarkerRequest request) {
-        requireAdmin(user);
+        requireAuthenticated(user);
         requireMap(mapId);
         requireStation(request.stationId());
         int updated = jdbcTemplate.update("""
@@ -158,7 +158,7 @@ public class MapDocumentService {
 
     @Transactional
     public void deleteMarker(CurrentUser user, String mapId, String markerId) {
-        requireAdmin(user);
+        requireAuthenticated(user);
         int deleted = jdbcTemplate.update("DELETE FROM map_marker WHERE id = ? AND map_id = ?", markerId, mapId);
         if (deleted == 0) {
             throw new BusinessException("站点组件不存在");
@@ -167,7 +167,7 @@ public class MapDocumentService {
 
     @Transactional
     public IntervalView createInterval(CurrentUser user, String mapId, IntervalRequest request) {
-        requireAdmin(user);
+        requireAuthenticated(user);
         requireMap(mapId);
         List<String> baseStations = validateInterval(mapId, null, request);
         String id = "interval-" + UUID.randomUUID();
@@ -180,7 +180,7 @@ public class MapDocumentService {
 
     @Transactional
     public IntervalView updateInterval(CurrentUser user, String mapId, String intervalId, IntervalRequest request) {
-        requireAdmin(user);
+        requireAuthenticated(user);
         requireMap(mapId);
         List<String> baseStations = validateInterval(mapId, intervalId, request);
         int updated = jdbcTemplate.update("""
@@ -194,7 +194,7 @@ public class MapDocumentService {
 
     @Transactional
     public void deleteInterval(CurrentUser user, String mapId, String intervalId) {
-        requireAdmin(user);
+        requireAuthenticated(user);
         int deleted = jdbcTemplate.update("DELETE FROM map_interval WHERE id = ? AND map_id = ?", intervalId, mapId);
         if (deleted == 0) throw new BusinessException("车站区间不存在");
     }
@@ -293,7 +293,7 @@ public class MapDocumentService {
         }
     }
 
-    private void requireAdmin(CurrentUser user) {
+    private void requireAuthenticated(CurrentUser user) {
         if (user == null || user.userId() == null) {
             throw new AccessDeniedException("请先登录");
         }

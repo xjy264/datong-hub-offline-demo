@@ -40,11 +40,11 @@ public class AuthService {
     public LoginResult login(LoginRequest request) {
         String phone = request.phone().trim();
         List<UserRow> users = jdbcTemplate.query("""
-                SELECT id, username, password, real_name, phone, status, approval_status, is_super_admin, deleted
+                SELECT id, username, password, real_name, phone, status, approval_status, deleted
                 FROM sys_user WHERE phone = ? OR username = ? LIMIT 1
                 """, (rs, rowNum) -> new UserRow(
                 rs.getLong("id"), rs.getString("username"), rs.getString("password"), rs.getString("real_name"),
-                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getBoolean("is_super_admin"), rs.getInt("deleted")
+                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getInt("deleted")
         ), phone, phone);
         if (users.isEmpty() || users.getFirst().deleted() == 1 || !passwordEncoder.matches(request.password(), users.getFirst().password())) {
             throw new BusinessException("手机号或密码错误");
@@ -60,11 +60,11 @@ public class AuthService {
 
     public AuthSessionResponse currentSession(Long userId) {
         List<UserRow> users = jdbcTemplate.query("""
-                SELECT id, username, password, real_name, phone, status, approval_status, is_super_admin, deleted
+                SELECT id, username, password, real_name, phone, status, approval_status, deleted
                 FROM sys_user WHERE id = ? LIMIT 1
                 """, (rs, rowNum) -> new UserRow(
                 rs.getLong("id"), rs.getString("username"), rs.getString("password"), rs.getString("real_name"),
-                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getBoolean("is_super_admin"), rs.getInt("deleted")
+                rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getInt("deleted")
         ), userId);
         if (users.isEmpty() || users.getFirst().deleted() == 1) {
             throw new BusinessException("用户不存在");
@@ -74,7 +74,7 @@ public class AuthService {
 
     private AuthSessionResponse session(UserRow user) {
         return new AuthSessionResponse(
-                new AuthUser(user.id(), user.username(), user.phone(), user.realName(), false),
+                new AuthUser(user.id(), user.username(), user.phone(), user.realName()),
                 Set.of("MAP_EDIT")
         );
     }
@@ -83,6 +83,6 @@ public class AuthService {
     }
 
     private record UserRow(Long id, String username, String password, String realName, String phone,
-                           String status, String approvalStatus, boolean superAdmin, int deleted) {
+                           String status, String approvalStatus, int deleted) {
     }
 }
