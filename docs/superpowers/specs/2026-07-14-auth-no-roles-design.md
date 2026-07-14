@@ -8,14 +8,14 @@
 
 - 注册用户直接写入 `status = ENABLED`、`approval_status = APPROVED`、`is_super_admin = 0`。
 - 登录仍校验账号存在、密码正确、账号未删除且状态为 `ENABLED`，但不再提供待审核流程。
-- 所有有效登录会话统一返回 `MAP_EDIT` 权限，不再返回或判断 `USER_ADMIN`。
+- 所有有效登录会话统一返回 `MAP_EDIT` 权限，不再返回或判断 `USER_ADMIN`，用户会话不再暴露管理员标记。
 - 删除 `/api/admin/users` 下的用户列表、审批、禁用和管理员重置密码接口及其服务代码。
 - 删除基于 `ROLE_ADMIN` 的接口分权配置；现有地图写操作继续要求登录。
 - 保留数据库中的 `approval_status` 和 `is_super_admin` 字段，避免破坏既有数据与旧迁移。
 
 ## 数据迁移
 
-新增 Flyway V9 迁移，把所有未删除用户的 `approval_status` 统一更新为 `APPROVED`，并把 `is_super_admin` 统一更新为 `0`。不修改已发布的 V1-V8。
+新增 Flyway V9 迁移，把所有未删除用户的 `approval_status` 统一更新为 `APPROVED`，并把 `is_super_admin` 统一更新为 `0`。若 V1 内置账号仍使用公开仓库中的已知默认密码，则同时禁用该账号，避免取消管理员初始化逻辑后遗留公开凭据。不修改已发布的 V1-V8。
 
 ## 前端行为
 
