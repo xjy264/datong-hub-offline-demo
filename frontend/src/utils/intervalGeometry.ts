@@ -1,6 +1,6 @@
 type Point = { x: number; y: number }
 
-const ENDPOINT_GAP = 2
+const ENDPOINT_GAP = 1.5
 
 export function intervalGeometry(stationA: Point, stationB: Point) {
   const dx = stationB.x - stationA.x
