@@ -96,7 +96,7 @@
               v-for="marker in currentMap.markers"
               :key="marker.id"
               class="hotspot marker-hotspot"
-              :class="{ hidden: !visibleMarkerIds.has(marker.id), selected: selectedMarkerId === marker.id, active: !editMode && selectedSidebarStationId === marker.station.id }"
+              :class="{ hidden: !visibleMarkerIds.has(marker.id), selected: selectedMarkerId === marker.id, active: !editMode && selectedSidebarStationId === marker.station.id, 'interval-endpoint': intervalEndpointMarkerIds.has(marker.id) }"
               :style="markerStyle(marker)"
               :title="marker.station.name"
               @click.stop="clickMarker(marker)"
@@ -385,6 +385,7 @@ const filteredMarkers = computed(() => {
   })
 })
 const visibleMarkerIds = computed(() => new Set(filteredMarkers.value.map((marker) => marker.id)))
+const intervalEndpointMarkerIds = computed(() => new Set((currentMap.value?.intervals || []).flatMap((interval) => [interval.markerAId, interval.markerBId])))
 const canvasStyle = computed(() => ({ transform: `translate(${panX.value}px, ${panY.value}px) scale(${scale.value})`, width: `${currentMap.value?.width || 1191}px`, height: `${currentMap.value?.height || 842}px` }))
 const baseMapStyle = computed(() => ({ width: `${currentMap.value?.width || 1191}px`, height: `${currentMap.value?.height || 842}px` }))
 const hoverStyle = computed(() => ({ left: `${hoverX.value}px`, top: `${hoverY.value}px` }))
