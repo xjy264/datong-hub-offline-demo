@@ -33,7 +33,7 @@ public class AuthService {
         }
         jdbcTemplate.update("""
                 INSERT INTO sys_user (username, password, real_name, phone, status, approval_status, is_super_admin, deleted, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'ENABLED', 'PENDING', 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, 'ENABLED', 'APPROVED', 0, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 """, phone, passwordEncoder.encode(request.password()), realName, phone);
     }
 
@@ -50,9 +50,6 @@ public class AuthService {
             throw new BusinessException("手机号或密码错误");
         }
         UserRow user = users.getFirst();
-        if ("PENDING".equals(user.approvalStatus())) {
-            throw new BusinessException("账号待管理员审核");
-        }
         if (!"APPROVED".equals(user.approvalStatus()) || !"ENABLED".equals(user.status())) {
             throw new BusinessException("账号已禁用，请联系管理员");
         }
@@ -77,8 +74,8 @@ public class AuthService {
 
     private AuthSessionResponse session(UserRow user) {
         return new AuthSessionResponse(
-                new AuthUser(user.id(), user.username(), user.phone(), user.realName(), user.superAdmin()),
-                user.superAdmin() ? Set.of("MAP_EDIT", "USER_ADMIN") : Set.of("MAP_EDIT")
+                new AuthUser(user.id(), user.username(), user.phone(), user.realName(), false),
+                Set.of("MAP_EDIT")
         );
     }
 
