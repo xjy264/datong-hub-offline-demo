@@ -6,6 +6,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +39,12 @@ public class GlobalExceptionHandler {
                 .map(error -> error.getDefaultMessage() == null ? "参数不正确" : error.getDefaultMessage())
                 .orElse("参数不正确");
         return ApiResponse.fail(400, message);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
+    public ApiResponse<Void> uploadTooLarge(MaxUploadSizeExceededException ex) {
+        return ApiResponse.fail(413, "上传文件或请求总大小超过限制");
     }
 
     @ExceptionHandler(Exception.class)

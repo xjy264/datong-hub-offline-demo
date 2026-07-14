@@ -4,9 +4,11 @@ import cn.datong.map.common.ApiResponse;
 import cn.datong.map.security.AuthCookies;
 import cn.datong.map.security.SecurityUtils;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,26 +24,37 @@ import java.util.Base64;
 @RequestMapping("/api/auth")
 public class AuthController {
     private final AuthService authService;
+    private final boolean production;
     private final boolean cookieSecure;
     private final long jwtExpireSeconds;
     private final SecureRandom random = new SecureRandom();
 
     public AuthController(AuthService authService,
+                          @Value("${app.production:false}") boolean production,
                           @Value("${app.auth.cookie-secure:false}") boolean cookieSecure,
                           @Value("${app.jwt.expire-seconds:86400}") long jwtExpireSeconds) {
         this.authService = authService;
+        this.production = production;
         this.cookieSecure = cookieSecure;
         this.jwtExpireSeconds = jwtExpireSeconds;
     }
 
     @PostMapping("/register")
-    public ApiResponse<Void> register(@Valid @RequestBody RegisterRequest request) {
+    public ApiResponse<Void> register(@Valid @RequestBody RegisterRequest request,
+                                      HttpServletRequest servletRequest, HttpServletResponse response) {
+        if (rejectInsecureProductionRequest(servletRequest, response)) {
+            return ApiResponse.fail(426, "生产环境登录和注册必须使用HTTPS");
+        }
         authService.register(request);
         return ApiResponse.success();
     }
 
     @PostMapping("/login")
-    public ApiResponse<AuthSessionResponse> login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
+    public ApiResponse<AuthSessionResponse> login(@Valid @RequestBody LoginRequest request,
+                                                   HttpServletRequest servletRequest, HttpServletResponse response) {
+        if (rejectInsecureProductionRequest(servletRequest, response)) {
+            return ApiResponse.fail(426, "生产环境登录和注册必须使用HTTPS");
+        }
         AuthService.LoginResult result = authService.login(request);
         setCookie(response, AuthCookies.AUTH_COOKIE, result.token(), true, Duration.ofSeconds(jwtExpireSeconds));
         setCookie(response, AuthCookies.CSRF_COOKIE, randomToken(), false, Duration.ofSeconds(jwtExpireSeconds));
@@ -79,5 +92,13 @@ public class AuthController {
         byte[] bytes = new byte[32];
         random.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private boolean rejectInsecureProductionRequest(HttpServletRequest request, HttpServletResponse response) {
+        if (!production || request.isSecure() || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto"))) {
+            return false;
+        }
+        response.setStatus(HttpStatus.UPGRADE_REQUIRED.value());
+        return true;
     }
 }

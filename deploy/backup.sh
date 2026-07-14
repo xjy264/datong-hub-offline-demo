@@ -13,7 +13,7 @@ target="$BACKUP_ROOT/daily-$stamp"
 mkdir -p "$target"
 chmod 700 "$BACKUP_ROOT" "$target"
 
-docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump --single-transaction --routines --triggers -u"$MYSQL_USER" "$MYSQL_DATABASE"' > "$target/mysql.sql"
+docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump --single-transaction --no-tablespaces --routines --triggers -u"$MYSQL_USER" "$MYSQL_DATABASE"' > "$target/mysql.sql"
 docker run --rm -v datong-map_minio-data:/data:ro -v "$target:/backup" alpine:3.21 tar -C /data -czf /backup/minio.tar.gz .
 cp .env "$target/deploy.env"
 chmod 600 "$target/deploy.env"
