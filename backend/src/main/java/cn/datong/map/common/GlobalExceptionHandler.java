@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +46,12 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
     public ApiResponse<Void> uploadTooLarge(MaxUploadSizeExceededException ex) {
         return ApiResponse.fail(413, "上传文件或请求总大小超过限制");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> notFound(NoResourceFoundException ex) {
+        return ApiResponse.fail(404, "接口不存在");
     }
 
     @ExceptionHandler(Exception.class)
