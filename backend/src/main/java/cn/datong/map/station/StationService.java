@@ -101,6 +101,11 @@ public class StationService {
             String type = "blue".equals(color) ? "已撤站" : "车站";
             jdbcTemplate.update("UPDATE map_station SET color = ?, type = ? WHERE id = ?", color, type, stationId);
         }
+        if (request.mileage() != null) {
+            String mileage = trim(request.mileage());
+            if (mileage.length() > 64) throw new BusinessException("公里标不能超过64个字符");
+            jdbcTemplate.update("UPDATE map_station SET mileage = ? WHERE id = ?", mileage, stationId);
+        }
     }
 
     @Transactional

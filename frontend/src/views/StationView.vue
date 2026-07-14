@@ -29,10 +29,11 @@
               <el-option v-for="workshop in workshops" :key="workshop.id" :label="workshop.name" :value="workshop.id" />
             </el-select>
           </el-form-item>
+          <el-form-item label="公里标">
+            <el-input v-model="form.mileage" maxlength="64" @change="saveProfile" />
+          </el-form-item>
           <div class="form-grid compact">
             <label>类型</label><div class="value">{{ station.color === 'blue' ? '已撤站' : '车站' }}</div>
-            <label>里程</label><div class="value">{{ station.mileage || '未匹配' }}</div>
-            <label>坐标</label><div class="value">{{ station.position.x.toFixed(1) }}, {{ station.position.y.toFixed(1) }}</div>
             <label>图片</label><div class="value">{{ countImages(station.folders) }} 张</div>
           </div>
           <el-form-item label="备注">
@@ -135,7 +136,7 @@ const previewIndex = ref(0)
 const imageSizes = reactive<Record<string, { width: number; height: number }>>({})
 const previewViewport = reactive(currentViewport())
 const folderInputs = new Map<string, { focus: () => void }>()
-const form = reactive<{ name: string; notes: string; workshopId: number | null }>({ name: '', notes: '', workshopId: null })
+const form = reactive<{ name: string; notes: string; mileage: string; workshopId: number | null }>({ name: '', notes: '', mileage: '', workshopId: null })
 const station = computed(() => map.stationById(String(route.params.id)))
 const workshops = computed(() => map.workshops)
 
@@ -150,6 +151,7 @@ function syncForm() {
   if (!station.value) return
   form.name = station.value.name
   form.notes = station.value.notes || ''
+  form.mileage = station.value.mileage || ''
   form.workshopId = station.value.workshopId
   if (!selectedFolderId.value && station.value.folders[0]) selectedFolderId.value = station.value.folders[0].id
 }
@@ -178,7 +180,7 @@ function countImages(folders: StationFolder[]): number {
 
 async function saveProfile() {
   if (!station.value) return
-  await map.updateProfile(station.value.id, { name: form.name, notes: form.notes, workshopId: form.workshopId })
+  await map.updateProfile(station.value.id, { name: form.name, notes: form.notes, mileage: form.mileage, workshopId: form.workshopId })
   ElMessage.success('已保存')
 }
 

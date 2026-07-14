@@ -27,9 +27,13 @@ public final class StationDtos {
     public record WorkshopRequest(String name) {
     }
 
-    public record ProfileRequest(String name, String notes, Long workshopId, String color) {
+    public record ProfileRequest(String name, String notes, Long workshopId, String color, String mileage) {
         public ProfileRequest(String name, String notes, Long workshopId) {
-            this(name, notes, workshopId, null);
+            this(name, notes, workshopId, null, null);
+        }
+
+        public ProfileRequest(String name, String notes, Long workshopId, String color) {
+            this(name, notes, workshopId, color, null);
         }
     }
 

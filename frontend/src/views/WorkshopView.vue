@@ -30,7 +30,7 @@
     <section class="panel">
       <div class="workshop-toolbar">
         <div class="tool-row">
-          <el-input v-model="query" class="search-field" placeholder="搜索本车间站点、里程" clearable />
+          <el-input v-model="query" class="search-field" placeholder="搜索本车间站点、公里标" clearable />
           <el-radio-group v-model="colorFilter">
             <el-radio-button label="all">全部</el-radio-button>
             <el-radio-button label="red">车站</el-radio-button>
@@ -43,7 +43,7 @@
         <button v-for="station in filteredStations" :key="station.id" class="station-row" :class="{ focused: station.id === focusId }" @click="router.push(stationDetailPath(station))">
           <span>
             <strong><span class="color-dot" :style="{ '--dot': station.color === 'blue' ? '#0000ff' : '#ff0000' }"></span>{{ station.name }}</strong>
-            <span class="meta">{{ station.color === 'blue' ? '已撤站' : '车站' }} · 里程 {{ station.mileage || '未匹配' }} · 图片 {{ countImages(station.folders) }} 张</span>
+            <span class="meta">{{ station.color === 'blue' ? '已撤站' : '车站' }} · 公里标 {{ station.mileage || '未匹配' }} · 图片 {{ countImages(station.folders) }} 张</span>
           </span>
           <span class="badge">详情</span>
         </button>

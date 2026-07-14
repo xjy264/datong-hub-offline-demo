@@ -64,6 +64,34 @@ class StationServiceWorkshopTest {
     }
 
     @Test
+    void updateProfileTrimsAndStoresMileage() {
+        stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, null, " K123+456 "));
+
+        assertThat(stations.listStations().getFirst().mileage()).isEqualTo("K123+456");
+    }
+
+    @Test
+    void updateProfileCanClearMileage() {
+        stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, null, "   "));
+
+        assertThat(stations.listStations().getFirst().mileage()).isEmpty();
+    }
+
+    @Test
+    void legacyProfileRequestKeepsMileage() {
+        stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L));
+
+        assertThat(stations.listStations().getFirst().mileage()).isEqualTo("261.396");
+    }
+
+    @Test
+    void updateProfileRejectsMileageLongerThanDatabaseColumn() {
+        assertThatThrownBy(() -> stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, null, "K".repeat(65))))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("公里标不能超过64个字符");
+    }
+
+    @Test
     void updateProfileCanChangeStationColorWhenProvided() {
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, "blue"));
 

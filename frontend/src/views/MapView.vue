@@ -35,7 +35,7 @@
           <el-autocomplete
             v-model="query"
             class="search-field"
-            placeholder="搜索站名、里程、车间"
+            placeholder="搜索站名、公里标、车间"
             clearable
             :fetch-suggestions="fetchMarkerSuggestions"
             :trigger-on-focus="false"
@@ -235,6 +235,9 @@
               <el-form-item label="站点名称">
                 <el-input v-model="sidebarForm.name" :disabled="savingSidebarStation" @change="saveSidebarStation" />
               </el-form-item>
+              <el-form-item label="公里标">
+                <el-input v-model="sidebarForm.mileage" maxlength="64" :disabled="savingSidebarStation" @change="saveSidebarStation" />
+              </el-form-item>
               <el-form-item label="状态">
                 <el-radio-group v-model="sidebarForm.color" :disabled="savingSidebarStation" @change="saveSidebarStation">
                   <el-radio-button label="red">车站</el-radio-button>
@@ -267,7 +270,7 @@
     <div v-if="hoverMarker" class="hover-card show" :style="hoverStyle">
       <p class="hover-name">{{ hoverMarker.station.name }}</p>
       <div class="hover-meta">{{ colorLabel(hoverMarker.station.color) }} · {{ workshopName(hoverMarker.station.workshopId) }}</div>
-      <div class="hover-meta">里程：{{ hoverMarker.station.mileage || '未匹配' }}</div>
+      <div class="hover-meta">公里标：{{ hoverMarker.station.mileage || '未匹配' }}</div>
       <div class="hover-meta">图片：{{ countImages(hoverMarker.station.folders) }} 张</div>
       <div v-if="firstImages(hoverMarker.station).length" class="hover-photos">
         <img v-for="image in firstImages(hoverMarker.station)" :key="image.id" :src="image.url" alt="" />
@@ -337,7 +340,7 @@ const deleteWorkshopDialogVisible = ref(false)
 const deleteWorkshopId = ref<number | null>(null)
 const selectedSidebarStationId = ref('')
 const savingSidebarStation = ref(false)
-const sidebarForm = reactive<{ name: string; workshopId: number | null; color: 'red' | 'blue' }>({ name: '', workshopId: null, color: 'red' })
+const sidebarForm = reactive<{ name: string; mileage: string; workshopId: number | null; color: 'red' | 'blue' }>({ name: '', mileage: '', workshopId: null, color: 'red' })
 const scale = ref(1)
 const panX = ref(0)
 const panY = ref(0)
@@ -450,6 +453,7 @@ function workshopStats(id: number) {
 function syncSidebarForm() {
   if (!selectedSidebarStation.value) return
   sidebarForm.name = selectedSidebarStation.value.name
+  sidebarForm.mileage = selectedSidebarStation.value.mileage || ''
   sidebarForm.workshopId = selectedSidebarStation.value.workshopId
   sidebarForm.color = stationType(selectedSidebarStation.value)
 }
@@ -553,7 +557,7 @@ async function saveSidebarStation() {
   }
   savingSidebarStation.value = true
   try {
-    await map.updateProfile(selectedSidebarStation.value.id, { name, notes: selectedSidebarStation.value.notes || '', workshopId: sidebarForm.workshopId, color: sidebarForm.color })
+    await map.updateProfile(selectedSidebarStation.value.id, { name, notes: selectedSidebarStation.value.notes || '', mileage: sidebarForm.mileage, workshopId: sidebarForm.workshopId, color: sidebarForm.color })
     ElMessage.success('已保存')
   } finally {
     savingSidebarStation.value = false
