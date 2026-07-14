@@ -310,7 +310,7 @@ import { intervalGeometry } from '../utils/intervalGeometry'
 import { nextSidebarStationId } from '../utils/mapMarkerClick'
 import { focusMarkerTransform, markerSuggestions } from '../utils/mapSearch'
 import { createMarkerDraft } from '../utils/markerDraft'
-import { markerEditStationOptions, markerTypeForStation } from '../utils/markerEdit'
+import { intervalMarkerLabel, markerEditStationOptions, markerTypeForStation } from '../utils/markerEdit'
 import { DEFAULT_MARKER_SIZE, markerCssVars } from '../utils/markerStyle'
 import { findStationByName } from '../utils/stationMatch'
 import { stationDetailPath } from '../utils/stationRoute'
@@ -507,7 +507,7 @@ function intervalStyle(markerA: MapMarker, markerB: MapMarker) {
 }
 
 function markerOptionLabel(marker: MapMarker) {
-  return `${marker.station.name}（${marker.x.toFixed(1)}, ${marker.y.toFixed(1)}）`
+  return intervalMarkerLabel(marker)
 }
 
 function intervalStationName(markerId: string) {
