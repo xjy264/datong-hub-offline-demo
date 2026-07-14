@@ -100,7 +100,9 @@ git commit -m "Remove administrator permission split"
 **Files:**
 - Create: `backend/src/main/resources/db/migration/V9__unify_user_permissions.sql`
 - Delete: `backend/src/main/java/cn/datong/map/auth/AdminBootstrap.java`
+- Create: `backend/src/main/java/cn/datong/map/auth/ProductionSecurityGuard.java`
 - Delete: `backend/src/test/java/cn/datong/map/auth/AdminBootstrapTest.java`
+- Create: `backend/src/test/java/cn/datong/map/auth/ProductionSecurityGuardTest.java`
 - Modify: `backend/src/main/resources/application.yml`
 - Modify: `deploy/docker-compose.yml`
 - Modify: `deploy/.env.example`
@@ -123,7 +125,7 @@ WHERE id = 1
 
 - [ ] **Step 2: Remove bootstrap-admin runtime configuration**
 
-Delete `AdminBootstrap`, its test, `app.bootstrap-admin` YAML, `BOOTSTRAP_ADMIN_PHONE`, and `BOOTSTRAP_ADMIN_PASSWORD` from Compose and both environment examples. Update README to state that registration is immediately usable while production still requires explicit database, MinIO, Redis, and JWT secrets.
+Replace `AdminBootstrap` with a `ProductionSecurityGuard` that retains the existing `APP_PRODUCTION=true` plus `AUTH_COOKIE_SECURE=true` startup requirement but creates or modifies no user. Remove `app.bootstrap-admin` YAML, `BOOTSTRAP_ADMIN_PHONE`, and `BOOTSTRAP_ADMIN_PASSWORD` from Compose and both environment examples. Update README to state that registration is immediately usable while production still requires explicit database, MinIO, Redis, and JWT secrets.
 
 - [ ] **Step 3: Verify migration from an empty database**
 
