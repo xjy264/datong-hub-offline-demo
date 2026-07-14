@@ -14,7 +14,8 @@ public final class MapDtos {
     }
 
     public record MapDetail(String id, String name, String backgroundUrl, int width, int height,
-                            List<MarkerView> markers, List<StationView> stations, List<WorkshopView> workshops) {
+                            List<MarkerView> markers, List<IntervalView> intervals,
+                            List<StationView> stations, List<WorkshopView> workshops) {
     }
 
     public record MapNameRequest(String name) {
@@ -24,5 +25,11 @@ public final class MapDtos {
     }
 
     public record MarkerRequest(String stationId, double x, double y, double size) {
+    }
+
+    public record IntervalView(String id, String mapId, String markerAId, String markerBId, List<String> baseStations) {
+    }
+
+    public record IntervalRequest(String markerAId, String markerBId, List<String> baseStations) {
     }
 }

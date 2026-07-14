@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { apiDelete, apiGet, apiPost, apiPut } from '../api/http'
-import type { MapDetail, MapMarker, MapSummary, Station, StationFolder, StationImage, Workshop } from '../types'
+import type { MapDetail, MapInterval, MapMarker, MapSummary, Station, StationFolder, StationImage, Workshop } from '../types'
 
 export const useMapStore = defineStore('map', {
   state: () => ({
@@ -72,6 +72,18 @@ export const useMapStore = defineStore('map', {
     },
     async deleteMarker(mapId: string, markerId: string) {
       await apiDelete(`/maps/${mapId}/markers/${markerId}`)
+      await this.loadMap(mapId)
+    },
+    async createInterval(mapId: string, body: { markerAId: string; markerBId: string; baseStations: string[] }) {
+      await apiPost<MapInterval>(`/maps/${mapId}/intervals`, body)
+      await this.loadMap(mapId)
+    },
+    async updateInterval(mapId: string, intervalId: string, body: { markerAId: string; markerBId: string; baseStations: string[] }) {
+      await apiPut<MapInterval>(`/maps/${mapId}/intervals/${intervalId}`, body)
+      await this.loadMap(mapId)
+    },
+    async deleteInterval(mapId: string, intervalId: string) {
+      await apiDelete(`/maps/${mapId}/intervals/${intervalId}`)
       await this.loadMap(mapId)
     },
     async updateProfile(stationId: string, body: { name: string; notes: string; workshopId: number | null; color?: 'red' | 'blue' }) {

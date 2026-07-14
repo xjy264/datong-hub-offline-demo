@@ -2,6 +2,8 @@ package cn.datong.map.layout;
 
 import cn.datong.map.common.BusinessException;
 import cn.datong.map.layout.MapDtos.MapDetail;
+import cn.datong.map.layout.MapDtos.IntervalRequest;
+import cn.datong.map.layout.MapDtos.IntervalView;
 import cn.datong.map.layout.MapDtos.MapNameRequest;
 import cn.datong.map.layout.MapDtos.MapSummary;
 import cn.datong.map.layout.MapDtos.MarkerRequest;
@@ -67,7 +69,8 @@ public class MapDocumentService {
                 rs.getDouble("size"), stations.get(rs.getString("station_id"))), mapId).stream()
                 .filter(marker -> marker.station() != null)
                 .toList();
-        return new MapDetail(map.id(), map.name(), map.backgroundUrl(), map.width(), map.height(), markers, new ArrayList<>(stations.values()), workshops.listWorkshops());
+        return new MapDetail(map.id(), map.name(), map.backgroundUrl(), map.width(), map.height(), markers,
+                intervals(mapId), new ArrayList<>(stations.values()), workshops.listWorkshops());
     }
 
     @Transactional
@@ -151,6 +154,40 @@ public class MapDocumentService {
         }
     }
 
+    @Transactional
+    public IntervalView createInterval(CurrentUser user, String mapId, IntervalRequest request) {
+        requireAdmin(user);
+        requireMap(mapId);
+        List<String> baseStations = validateInterval(mapId, null, request);
+        String id = "interval-" + UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO map_interval (id, map_id, marker_a_id, marker_b_id, base_stations, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, id, mapId, request.markerAId(), request.markerBId(), String.join("\n", baseStations));
+        return interval(mapId, id);
+    }
+
+    @Transactional
+    public IntervalView updateInterval(CurrentUser user, String mapId, String intervalId, IntervalRequest request) {
+        requireAdmin(user);
+        requireMap(mapId);
+        List<String> baseStations = validateInterval(mapId, intervalId, request);
+        int updated = jdbcTemplate.update("""
+                UPDATE map_interval
+                SET marker_a_id = ?, marker_b_id = ?, base_stations = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND map_id = ?
+                """, request.markerAId(), request.markerBId(), String.join("\n", baseStations), intervalId, mapId);
+        if (updated == 0) throw new BusinessException("车站区间不存在");
+        return interval(mapId, intervalId);
+    }
+
+    @Transactional
+    public void deleteInterval(CurrentUser user, String mapId, String intervalId) {
+        requireAdmin(user);
+        int deleted = jdbcTemplate.update("DELETE FROM map_interval WHERE id = ? AND map_id = ?", intervalId, mapId);
+        if (deleted == 0) throw new BusinessException("车站区间不存在");
+    }
+
     public BackgroundDownload background(String mapId) {
         MapRow map = requireMap(mapId);
         if (map.backgroundBucket() == null || map.backgroundObjectName() == null) {
@@ -171,6 +208,52 @@ public class MapDocumentService {
             throw new BusinessException("站点组件不存在");
         }
         return markers.getFirst();
+    }
+
+    private List<IntervalView> intervals(String mapId) {
+        return jdbcTemplate.query("""
+                SELECT id, map_id, marker_a_id, marker_b_id, base_stations
+                FROM map_interval WHERE map_id = ? ORDER BY created_at, id
+                """, (rs, rowNum) -> new IntervalView(rs.getString("id"), rs.getString("map_id"),
+                rs.getString("marker_a_id"), rs.getString("marker_b_id"),
+                rs.getString("base_stations").lines().toList()), mapId);
+    }
+
+    private IntervalView interval(String mapId, String intervalId) {
+        List<IntervalView> matches = jdbcTemplate.query("""
+                SELECT id, map_id, marker_a_id, marker_b_id, base_stations
+                FROM map_interval WHERE id = ? AND map_id = ?
+                """, (rs, rowNum) -> new IntervalView(rs.getString("id"), rs.getString("map_id"),
+                rs.getString("marker_a_id"), rs.getString("marker_b_id"),
+                rs.getString("base_stations").lines().toList()), intervalId, mapId);
+        if (matches.isEmpty()) throw new BusinessException("车站区间不存在");
+        return matches.getFirst();
+    }
+
+    private List<String> validateInterval(String mapId, String intervalId, IntervalRequest request) {
+        if (request == null || request.markerAId() == null || request.markerBId() == null) {
+            throw new BusinessException("请选择两个车站按钮");
+        }
+        if (request.markerAId().equals(request.markerBId())) {
+            throw new BusinessException("请选择两个不同的车站按钮");
+        }
+        Integer markerCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM map_marker WHERE map_id = ? AND id IN (?, ?)
+                """, Integer.class, mapId, request.markerAId(), request.markerBId());
+        if (markerCount == null || markerCount != 2) throw new BusinessException("车站按钮不存在");
+        Integer duplicateCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM map_interval
+                WHERE map_id = ? AND (? IS NULL OR id <> ?)
+                  AND ((marker_a_id = ? AND marker_b_id = ?) OR (marker_a_id = ? AND marker_b_id = ?))
+                """, Integer.class, mapId, intervalId, intervalId, request.markerAId(), request.markerBId(),
+                request.markerBId(), request.markerAId());
+        if (duplicateCount != null && duplicateCount > 0) throw new BusinessException("该车站区间已存在");
+        List<String> baseStations = request.baseStations() == null ? List.of() : request.baseStations().stream()
+                .map(value -> value == null ? "" : value.trim())
+                .filter(value -> !value.isBlank())
+                .toList();
+        if (baseStations.isEmpty()) throw new BusinessException("请填写基站信息");
+        return baseStations;
     }
 
     private MapSummary mapSummary(String mapId) {

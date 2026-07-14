@@ -4,6 +4,8 @@ import cn.datong.map.common.ApiResponse;
 import cn.datong.map.layout.MapDtos.MapDetail;
 import cn.datong.map.layout.MapDtos.MapNameRequest;
 import cn.datong.map.layout.MapDtos.MapSummary;
+import cn.datong.map.layout.MapDtos.IntervalRequest;
+import cn.datong.map.layout.MapDtos.IntervalView;
 import cn.datong.map.layout.MapDtos.MarkerRequest;
 import cn.datong.map.layout.MapDtos.MarkerView;
 import cn.datong.map.security.SecurityUtils;
@@ -80,6 +82,23 @@ public class MapDocumentController {
     @DeleteMapping("/{mapId}/markers/{markerId}")
     public ApiResponse<Void> deleteMarker(@PathVariable String mapId, @PathVariable String markerId) {
         service.deleteMarker(SecurityUtils.currentUser(), mapId, markerId);
+        return ApiResponse.success();
+    }
+
+    @PostMapping("/{mapId}/intervals")
+    public ApiResponse<IntervalView> createInterval(@PathVariable String mapId, @RequestBody IntervalRequest request) {
+        return ApiResponse.success(service.createInterval(SecurityUtils.currentUser(), mapId, request));
+    }
+
+    @PutMapping("/{mapId}/intervals/{intervalId}")
+    public ApiResponse<IntervalView> updateInterval(@PathVariable String mapId, @PathVariable String intervalId,
+                                                     @RequestBody IntervalRequest request) {
+        return ApiResponse.success(service.updateInterval(SecurityUtils.currentUser(), mapId, intervalId, request));
+    }
+
+    @DeleteMapping("/{mapId}/intervals/{intervalId}")
+    public ApiResponse<Void> deleteInterval(@PathVariable String mapId, @PathVariable String intervalId) {
+        service.deleteInterval(SecurityUtils.currentUser(), mapId, intervalId);
         return ApiResponse.success();
     }
 }

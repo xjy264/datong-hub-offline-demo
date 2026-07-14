@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +33,7 @@ class MapDocumentServiceTest {
         jdbc.execute("CREATE TABLE station_image (id VARCHAR(80) PRIMARY KEY, station_id VARCHAR(64), folder_id VARCHAR(80), name VARCHAR(160), content_type VARCHAR(100), size_bytes BIGINT, bucket VARCHAR(128), object_name VARCHAR(512), created_at DATETIME)");
         jdbc.execute("CREATE TABLE map_document (id VARCHAR(80) PRIMARY KEY, name VARCHAR(128), pdf_bucket VARCHAR(128), pdf_object_name VARCHAR(512), background_bucket VARCHAR(128), background_object_name VARCHAR(512), background_url VARCHAR(512), width INT, height INT, created_by BIGINT, created_at DATETIME)");
         jdbc.execute("CREATE TABLE map_marker (id VARCHAR(80) PRIMARY KEY, map_id VARCHAR(80), station_id VARCHAR(64), position_x DECIMAL(10,2), position_y DECIMAL(10,2), size DECIMAL(6,2), created_at DATETIME, updated_at DATETIME)");
+        jdbc.execute("CREATE TABLE map_interval (id VARCHAR(80) PRIMARY KEY, map_id VARCHAR(80), marker_a_id VARCHAR(80), marker_b_id VARCHAR(80), base_stations TEXT, created_at DATETIME, updated_at DATETIME)");
         jdbc.update("INSERT INTO map_workshop (id, code, name, color, sort_order) VALUES (1, 'north', '北部车间', '#0f766e', 10)");
         jdbc.update("INSERT INTO map_station VALUES ('xinzhou', '忻州站', '忻州站', '车站', 'red', '', '001', 10, 20, 4.4, 'north')");
         jdbc.update("INSERT INTO map_document VALUES ('default-map', '默认地图', NULL, NULL, NULL, NULL, '/assets/full-map.svg', 1191, 842, 1, CURRENT_TIMESTAMP)");
@@ -114,6 +116,38 @@ class MapDocumentServiceTest {
         assertThat(marker.station().id()).isEqualTo("xinzhou");
         assertThat(renamed.name()).isEqualTo("全员可编辑");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM map_document WHERE id = 'uploaded-map'", Integer.class)).isZero();
+    }
+
+    @Test
+    void createsUpdatesAndDeletesStationInterval() {
+        jdbc.update("INSERT INTO map_station VALUES ('meijiazhuang', '梅家庄', '梅家庄', '车站', 'red', '', '', 110, 20, 4.4, 'north')");
+        jdbc.update("INSERT INTO map_marker VALUES ('marker-a', 'default-map', 'xinzhou', 10, 20, 4.4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+        jdbc.update("INSERT INTO map_marker VALUES ('marker-b', 'default-map', 'meijiazhuang', 110, 20, 4.4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+
+        MapDtos.IntervalView created = service.createInterval(new CurrentUser(2L, false), "default-map",
+                new MapDtos.IntervalRequest("marker-a", "marker-b", List.of("茶坞K220+550基站", "茶坞东K221+550基站")));
+
+        assertThat(created.markerAId()).isEqualTo("marker-a");
+        assertThat(created.markerBId()).isEqualTo("marker-b");
+        assertThat(created.baseStations()).containsExactly("茶坞K220+550基站", "茶坞东K221+550基站");
+        assertThat(service.detail("default-map").intervals()).containsExactly(created);
+
+        MapDtos.IntervalView updated = service.updateInterval(new CurrentUser(2L, false), "default-map", created.id(),
+                new MapDtos.IntervalRequest("marker-a", "marker-b", List.of("茶坞西K550+551基站")));
+        assertThat(updated.baseStations()).containsExactly("茶坞西K550+551基站");
+
+        service.deleteInterval(new CurrentUser(2L, false), "default-map", created.id());
+        assertThat(service.detail("default-map").intervals()).isEmpty();
+    }
+
+    @Test
+    void rejectsIntervalWithSameStationButtonAtBothEnds() {
+        jdbc.update("INSERT INTO map_marker VALUES ('marker-a', 'default-map', 'xinzhou', 10, 20, 4.4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+
+        assertThatThrownBy(() -> service.createInterval(new CurrentUser(2L, false), "default-map",
+                new MapDtos.IntervalRequest("marker-a", "marker-a", List.of("基站"))))
+                .isInstanceOf(cn.datong.map.common.BusinessException.class)
+                .hasMessage("请选择两个不同的车站按钮");
     }
 
     private static class FakeStorage implements ImageStorage {

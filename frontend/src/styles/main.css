@@ -125,6 +125,18 @@ button { font: inherit; cursor: pointer; }
 .marker-type-group { width: 100%; margin-bottom: 8px; }
 .matched-station-hint { margin: 6px 0 0; color: var(--accent); font-size: 12px; line-height: 1.4; }
 .marker-hotspot { background: transparent; }
+.marker-hotspot { z-index: 2; }
+.interval-hotspot { position: absolute; z-index: 1; left: var(--interval-x); top: var(--interval-y); width: var(--interval-width); height: 12px; transform: translate(-50%, -50%) rotate(var(--interval-angle)); transform-origin: center; border: 0; border-radius: 999px; background: transparent; padding: 0; }
+.interval-hotspot::before { content: ""; position: absolute; inset: 3px 0; border-radius: 999px; background: #f59e0b; box-shadow: 0 0 0 1px rgba(120, 53, 15, .7); }
+.interval-hotspot:hover::before, .interval-hotspot.active::before { background: #fbbf24; box-shadow: 0 0 0 2px rgba(120, 53, 15, .65); }
+.interval-hotspot.selected::before { background: #f59e0b; box-shadow: 0 0 0 2px #0f766e; }
+.new-interval-preview { width: 34px; height: 5px; border-radius: 999px; background: #f59e0b; box-shadow: 0 0 0 1px rgba(120, 53, 15, .6); }
+.base-station-fields { width: 100%; display: grid; gap: 8px; }
+.base-station-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.base-station-list { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.interval-sidebar-info { margin-top: 10px; }
+.interval-hover-card { width: 280px; }
+.hover-base-station-list { padding-left: 24px; }
 .marker-hotspot:hover::before { background: var(--marker-color, #ff0000); outline: 2px solid rgba(17,24,39,.35); outline-offset: 2px; }
 .marker-hotspot.active::before { outline: 2px solid rgba(15,118,110,.55); outline-offset: 2px; }
 .marker-hotspot.selected::before { outline: 2px solid #f59e0b; outline-offset: 2px; }

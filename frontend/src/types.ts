@@ -61,8 +61,17 @@ export interface MapMarker {
   station: Station
 }
 
+export interface MapInterval {
+  id: string
+  mapId: string
+  markerAId: string
+  markerBId: string
+  baseStations: string[]
+}
+
 export interface MapDetail extends MapSummary {
   markers: MapMarker[]
+  intervals: MapInterval[]
   stations: Station[]
   workshops: Workshop[]
 }
