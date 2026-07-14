@@ -127,7 +127,7 @@ button { font: inherit; cursor: pointer; }
 .matched-station-hint { margin: 6px 0 0; color: var(--accent); font-size: 12px; line-height: 1.4; }
 .marker-hotspot { background: transparent; }
 .marker-hotspot { z-index: 2; }
-.marker-hotspot.interval-endpoint { width: 6px; height: 6px; inline-size: 6px; block-size: 6px; max-inline-size: 6px; max-block-size: 6px; }
+.marker-hotspot.interval-endpoint { width: 4px; height: 4px; inline-size: 4px; block-size: 4px; max-inline-size: 4px; max-block-size: 4px; }
 .interval-hotspot { position: absolute; z-index: 1; left: var(--interval-x); top: var(--interval-y); width: var(--interval-width); height: 4px; transform: translate(-50%, -50%) rotate(var(--interval-angle)); transform-origin: center; border: 0; border-radius: 999px; background: transparent; padding: 0; }
 .interval-hotspot::before { content: ""; position: absolute; inset: 1.5px 0; border-radius: 999px; background: #f59e0b; box-shadow: 0 0 0 .5px rgba(120, 53, 15, .7); }
 .interval-hotspot:hover::before, .interval-hotspot.active::before { background: #fbbf24; box-shadow: 0 0 0 .75px rgba(120, 53, 15, .65); }
