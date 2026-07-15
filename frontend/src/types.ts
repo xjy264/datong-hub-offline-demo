@@ -64,10 +64,13 @@ export interface MapMarker {
 export interface MapInterval {
   id: string
   mapId: string
-  markerAId: string
-  markerBId: string
+  markerAId: string | null
+  markerBId: string | null
   baseStations: string[]
-  directionOffset: number
+  x: number
+  y: number
+  length: number
+  angle: number
 }
 
 export interface MapDetail extends MapSummary {

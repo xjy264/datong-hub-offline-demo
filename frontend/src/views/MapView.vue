@@ -70,7 +70,7 @@
           class="viewport"
           @wheel.prevent="onWheel"
           @dragover.prevent
-          @drop.prevent="dropNewMarker"
+          @drop.prevent="dropMapComponent"
           @pointerdown="startPan"
           @pointermove="movePointer"
           @pointerup="stopPointer"
@@ -79,18 +79,26 @@
           <div v-if="currentMap" class="map-canvas" :style="canvasStyle">
             <img class="base-map" :src="currentMap.backgroundUrl" :style="baseMapStyle" alt="地图背景" />
             <button
-              v-for="item in renderableIntervals"
-              :key="item.interval.id"
+              v-for="interval in currentMap.intervals"
+              :key="interval.id"
               type="button"
               class="interval-hotspot"
-              :class="{ selected: selectedIntervalId === item.interval.id, active: !editMode && selectedSidebarIntervalId === item.interval.id }"
-              :style="intervalStyle(item.interval, item.markerA, item.markerB)"
-              :title="`${item.markerA.station.name}—${item.markerB.station.name}车站区间`"
-              @click.stop="clickInterval(item.interval)"
-              @pointerdown.stop
-              @pointerover="showIntervalHover(item.interval, $event)"
+              :class="{ selected: selectedIntervalId === interval.id, active: !editMode && selectedSidebarIntervalId === interval.id }"
+              :style="intervalStyle(interval)"
+              :title="intervalTitle(interval)"
+              @click.stop="clickInterval(interval)"
+              @pointerdown.stop="startIntervalDrag(interval, $event)"
+              @pointerover="showIntervalHover(interval, $event)"
               @pointermove="moveHover($event)"
               @pointerout="hoverInterval = null"
+            />
+            <button
+              v-if="intervalDraft"
+              type="button"
+              class="interval-hotspot selected draft-interval"
+              :style="intervalDraftStyle"
+              title="新车站区间"
+              @pointerdown.stop="startDraftIntervalDrag($event)"
             />
             <button
               v-for="marker in currentMap.markers"
@@ -125,32 +133,39 @@
               <strong>新增车站按钮</strong>
               <small>拖到 PDF 上</small>
             </button>
-            <button type="button" class="new-marker-drag station-action-card" @click="beginNewInterval">
+            <button type="button" class="new-marker-drag station-action-card" draggable="true" @dragstart="startNewIntervalDrag">
               <span class="new-interval-preview"></span>
               <strong>新增车站区间</strong>
-              <small>选择两个车站按钮</small>
+              <small>拖到 PDF 上</small>
             </button>
-            <p class="palette-hint">车站按钮可拖到地图；车站区间通过选择两个现有按钮自动连接。</p>
+            <p class="palette-hint">将车站按钮或车站区间拖到 PDF 上，再在下方填写对应信息。</p>
           </div>
 
           <div v-if="editMode && (intervalDraft || selectedInterval)" class="marker-form">
             <h3 class="panel-title">{{ intervalDraft ? '新增车站区间' : '编辑车站区间' }}</h3>
             <el-form label-position="top" class="marker-edit-fields">
               <el-form-item label="车站 A">
-                <el-select v-model="intervalForm.markerAId" filterable placeholder="请选择车站按钮" style="width: 100%">
+                <el-select v-model="intervalForm.markerAId" filterable clearable placeholder="可选车站按钮" style="width: 100%">
                   <el-option v-for="marker in currentMap?.markers || []" :key="marker.id" :label="markerOptionLabel(marker)" :value="marker.id" />
                 </el-select>
               </el-form-item>
               <el-form-item label="车站 B">
-                <el-select v-model="intervalForm.markerBId" filterable placeholder="请选择车站按钮" style="width: 100%">
+                <el-select v-model="intervalForm.markerBId" filterable clearable placeholder="可选车站按钮" style="width: 100%">
                   <el-option v-for="marker in currentMap?.markers || []" :key="marker.id" :label="markerOptionLabel(marker)" :value="marker.id" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="方向角度（相对自动方向）">
+              <el-form-item label="区间长度">
                 <div class="interval-direction-fields">
-                  <el-input-number v-model="intervalForm.directionOffset" :min="-180" :max="180" :step="1" controls-position="right" style="width: 100%" />
-                  <el-slider v-model="intervalForm.directionOffset" :min="-180" :max="180" :step="1" />
-                  <small>0° 为自动连线方向，调整时地图上会实时预览。</small>
+                  <el-input-number v-model="intervalForm.length" :min="2" :max="300" :step="1" controls-position="right" style="width: 100%" />
+                  <el-slider v-model="intervalForm.length" :min="2" :max="300" :step="1" />
+                  <small>调整时地图上会实时预览。</small>
+                </div>
+              </el-form-item>
+              <el-form-item label="方向角度（绝对方向）">
+                <div class="interval-direction-fields">
+                  <el-input-number v-model="intervalForm.angle" :min="-180" :max="180" :step="1" controls-position="right" style="width: 100%" />
+                  <el-slider v-model="intervalForm.angle" :min="-180" :max="180" :step="1" />
+                  <small>0° 为水平向右，90° 为竖直。</small>
                 </div>
               </el-form-item>
               <el-form-item label="基站信息列表">
@@ -164,7 +179,7 @@
               </el-form-item>
             </el-form>
             <div class="button-row">
-              <el-button type="primary" :disabled="!canSaveInterval" @click="saveInterval">保存区间</el-button>
+              <el-button type="primary" @click="saveInterval">保存区间</el-button>
               <el-button v-if="selectedInterval" type="danger" plain @click="deleteInterval">删除区间</el-button>
               <el-button @click="clearIntervalEdit">取消</el-button>
             </div>
@@ -313,7 +328,8 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
 import type { MapInterval, MapMarker, Station, StationFolder, StationImage } from '../types'
-import { intervalGeometry, intervalPreviewDirection } from '../utils/intervalGeometry'
+import { createIntervalDraft } from '../utils/intervalDraft'
+import { intervalGeometry, intervalPreviewGeometry } from '../utils/intervalGeometry'
 import { nextSidebarStationId } from '../utils/mapMarkerClick'
 import { focusMarkerTransform, markerSuggestions } from '../utils/mapSearch'
 import { createMarkerDraft } from '../utils/markerDraft'
@@ -324,6 +340,7 @@ import { stationDetailPath } from '../utils/stationRoute'
 import { workshopName as resolveWorkshopName, workshopPath } from '../utils/workshopRoute'
 
 type DraftMarker = { x: number; y: number; size: number }
+type IntervalForm = { markerAId: string | null; markerBId: string | null; baseStations: string[]; x: number; y: number; length: number; angle: number }
 type SearchSuggestion = ReturnType<typeof markerSuggestions>[number]
 
 const map = useMapStore()
@@ -340,7 +357,7 @@ const selectedMarkerType = ref<'red' | 'blue'>('red')
 const selectedIntervalId = ref('')
 const selectedSidebarIntervalId = ref('')
 const intervalDraft = ref(false)
-const intervalForm = reactive<{ markerAId: string; markerBId: string; baseStations: string[]; directionOffset: number }>({ markerAId: '', markerBId: '', baseStations: [''], directionOffset: 0 })
+const intervalForm = reactive<IntervalForm>({ markerAId: null, markerBId: null, baseStations: [''], x: 0, y: 0, length: 12, angle: 0 })
 const draftStationName = ref('')
 const draftStationWorkshopId = ref<number | null>(null)
 const deleteWorkshopDialogVisible = ref(false)
@@ -353,6 +370,7 @@ const panX = ref(0)
 const panY = ref(0)
 const panDrag = ref<{ x: number; y: number; panX: number; panY: number } | null>(null)
 const markerDrag = ref<{ id: string; moved: boolean } | null>(null)
+const intervalDrag = ref<{ id: string | null; moved: boolean } | null>(null)
 const draftMarker = ref<DraftMarker | null>(null)
 const hoverMarker = ref<MapMarker | null>(null)
 const hoverInterval = ref<MapInterval | null>(null)
@@ -395,7 +413,9 @@ const filteredMarkers = computed(() => {
   })
 })
 const visibleMarkerIds = computed(() => new Set(filteredMarkers.value.map((marker) => marker.id)))
-const intervalEndpointMarkerIds = computed(() => new Set((currentMap.value?.intervals || []).flatMap((interval) => [interval.markerAId, interval.markerBId])))
+const intervalEndpointMarkerIds = computed(() => new Set((currentMap.value?.intervals || [])
+  .flatMap((interval) => [interval.markerAId, interval.markerBId])
+  .filter((markerId): markerId is string => Boolean(markerId))))
 const canvasStyle = computed(() => ({ transform: `translate(${panX.value}px, ${panY.value}px) scale(${scale.value})`, width: `${currentMap.value?.width || 1191}px`, height: `${currentMap.value?.height || 842}px` }))
 const baseMapStyle = computed(() => ({ width: `${currentMap.value?.width || 1191}px`, height: `${currentMap.value?.height || 842}px` }))
 const hoverStyle = computed(() => ({ left: `${hoverX.value}px`, top: `${hoverY.value}px` }))
@@ -407,12 +427,7 @@ const selectedMarkerStation = computed(() => map.stations.find((station) => stat
 const markerTypeStations = computed(() => markerEditStationOptions(map.stations))
 const draftExistingStation = computed(() => findStationByName(map.stations, draftStationName.value))
 const canSaveDraftMarker = computed(() => !!draftStationName.value.trim() && (!!draftExistingStation.value || draftStationWorkshopId.value != null))
-const canSaveInterval = computed(() => intervalForm.markerAId !== '' && intervalForm.markerBId !== '' && intervalForm.markerAId !== intervalForm.markerBId && intervalForm.baseStations.some((item) => item.trim()))
-const renderableIntervals = computed(() => (currentMap.value?.intervals || []).flatMap((interval) => {
-  const markerA = currentMap.value?.markers.find((marker) => marker.id === interval.markerAId)
-  const markerB = currentMap.value?.markers.find((marker) => marker.id === interval.markerBId)
-  return markerA && markerB ? [{ interval, markerA, markerB }] : []
-}))
+const intervalDraftStyle = computed(() => intervalGeometryStyle(intervalGeometry(intervalForm)))
 
 watch(selectedSidebarStation, syncSidebarForm)
 
@@ -503,9 +518,7 @@ function markerStyle(marker: { x: number; y: number; size?: number; color?: stri
   })
 }
 
-function intervalStyle(interval: MapInterval, markerA: MapMarker, markerB: MapMarker) {
-  const directionOffset = intervalPreviewDirection(interval, selectedIntervalId.value, intervalForm.directionOffset)
-  const geometry = intervalGeometry(markerA, markerB, directionOffset)
+function intervalGeometryStyle(geometry: ReturnType<typeof intervalGeometry>) {
   return {
     '--interval-x': `${geometry.x}px`,
     '--interval-y': `${geometry.y}px`,
@@ -514,11 +527,20 @@ function intervalStyle(interval: MapInterval, markerA: MapMarker, markerB: MapMa
   }
 }
 
+function intervalStyle(interval: MapInterval) {
+  return intervalGeometryStyle(intervalPreviewGeometry(interval, selectedIntervalId.value, intervalForm))
+}
+
+function intervalTitle(interval: MapInterval) {
+  return `${intervalStationName(interval.markerAId)}—${intervalStationName(interval.markerBId)}车站区间`
+}
+
 function markerOptionLabel(marker: MapMarker) {
   return intervalMarkerLabel(marker)
 }
 
-function intervalStationName(markerId: string) {
+function intervalStationName(markerId: string | null) {
+  if (!markerId) return '未选择'
   return currentMap.value?.markers.find((marker) => marker.id === markerId)?.station.name || '车站按钮不存在'
 }
 
@@ -575,21 +597,23 @@ async function saveSidebarStation() {
 function toggleEdit() {
   editMode.value = !editMode.value
   selectedMarkerId.value = ''
+  intervalDrag.value = null
   clearDraftMarker()
   clearIntervalEdit()
 }
 
-function beginNewInterval() {
+function beginNewInterval(point: { x: number; y: number }) {
   clearDraftMarker()
   selectedMarkerId.value = ''
+  selectedMarkerStationId.value = ''
   selectedIntervalId.value = ''
   selectedSidebarIntervalId.value = ''
   selectedSidebarStationId.value = ''
   intervalDraft.value = true
-  intervalForm.markerAId = ''
-  intervalForm.markerBId = ''
+  intervalForm.markerAId = null
+  intervalForm.markerBId = null
   intervalForm.baseStations = ['']
-  intervalForm.directionOffset = 0
+  Object.assign(intervalForm, createIntervalDraft(point))
 }
 
 function clickInterval(interval: MapInterval) {
@@ -603,7 +627,10 @@ function clickInterval(interval: MapInterval) {
   intervalForm.markerAId = interval.markerAId
   intervalForm.markerBId = interval.markerBId
   intervalForm.baseStations = [...interval.baseStations]
-  intervalForm.directionOffset = interval.directionOffset
+  intervalForm.x = interval.x
+  intervalForm.y = interval.y
+  intervalForm.length = interval.length
+  intervalForm.angle = interval.angle
 }
 
 function addBaseStation() {
@@ -616,12 +643,15 @@ function removeBaseStation(index: number) {
 }
 
 async function saveInterval() {
-  if (!currentMap.value || !canSaveInterval.value) return
+  if (!currentMap.value) return
   const body = {
     markerAId: intervalForm.markerAId,
     markerBId: intervalForm.markerBId,
     baseStations: intervalForm.baseStations.map((item) => item.trim()).filter(Boolean),
-    directionOffset: intervalForm.directionOffset
+    x: intervalForm.x,
+    y: intervalForm.y,
+    length: intervalForm.length,
+    angle: intervalForm.angle
   }
   if (intervalDraft.value) await map.createInterval(currentMap.value.id, body)
   else if (selectedInterval.value) await map.updateInterval(currentMap.value.id, selectedInterval.value.id, body)
@@ -645,10 +675,14 @@ async function deleteInterval() {
 function clearIntervalEdit() {
   intervalDraft.value = false
   selectedIntervalId.value = ''
-  intervalForm.markerAId = ''
-  intervalForm.markerBId = ''
+  intervalDrag.value = null
+  intervalForm.markerAId = null
+  intervalForm.markerBId = null
   intervalForm.baseStations = ['']
-  intervalForm.directionOffset = 0
+  intervalForm.x = 0
+  intervalForm.y = 0
+  intervalForm.length = 12
+  intervalForm.angle = 0
 }
 
 function startNewMarkerDrag(event: DragEvent) {
@@ -656,15 +690,28 @@ function startNewMarkerDrag(event: DragEvent) {
   if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy'
 }
 
-function dropNewMarker(event: DragEvent) {
+function startNewIntervalDrag(event: DragEvent) {
+  event.dataTransfer?.setData('new-interval', '1')
+  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy'
+}
+
+function dropMapComponent(event: DragEvent) {
   if (!editMode.value || !currentMap.value) return
-  if (event.dataTransfer?.getData('new-marker') !== '1') return
   const point = localPoint(event.clientX, event.clientY)
+  if (event.dataTransfer?.getData('new-interval') === '1') {
+    beginNewInterval(point)
+    return
+  }
+  if (event.dataTransfer?.getData('new-marker') !== '1') return
+  clearIntervalEdit()
+  clearDraftMarker()
   const draft = createMarkerDraft(point)
   draftMarker.value = draft.marker
   draftStationName.value = ''
   draftStationWorkshopId.value = null
   selectedMarkerId.value = ''
+  selectedSidebarIntervalId.value = ''
+  selectedSidebarStationId.value = ''
   selectedMarkerStationId.value = draft.stationId
   selectedMarkerType.value = 'red'
 }
@@ -695,6 +742,31 @@ function startMarkerDrag(marker: MapMarker, event: PointerEvent) {
   selectedMarkerType.value = stationType(marker.station)
   markerDrag.value = { id: marker.id, moved: false }
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+
+function startIntervalDrag(interval: MapInterval, event: PointerEvent) {
+  if (!editMode.value) return
+  if (selectedIntervalId.value !== interval.id) clickInterval(interval)
+  intervalDrag.value = { id: interval.id, moved: false }
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+
+function startDraftIntervalDrag(event: PointerEvent) {
+  if (!editMode.value || !intervalDraft.value) return
+  intervalDrag.value = { id: null, moved: false }
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+
+function intervalPayload(interval: Pick<MapInterval, 'markerAId' | 'markerBId' | 'baseStations' | 'x' | 'y' | 'length' | 'angle'>) {
+  return {
+    markerAId: interval.markerAId,
+    markerBId: interval.markerBId,
+    baseStations: interval.baseStations,
+    x: interval.x,
+    y: interval.y,
+    length: interval.length,
+    angle: interval.angle
+  }
 }
 
 async function saveSelectedMarker() {
@@ -806,6 +878,23 @@ function startPan(event: PointerEvent) {
 }
 
 function movePointer(event: PointerEvent) {
+  if (intervalDrag.value && currentMap.value) {
+    const point = localPoint(event.clientX, event.clientY)
+    if (intervalDrag.value.id == null) {
+      intervalForm.x = point.x
+      intervalForm.y = point.y
+    } else {
+      const interval = currentMap.value.intervals.find((item) => item.id === intervalDrag.value?.id)
+      if (interval) {
+        interval.x = point.x
+        interval.y = point.y
+        intervalForm.x = point.x
+        intervalForm.y = point.y
+      }
+    }
+    intervalDrag.value.moved = true
+    return
+  }
   if (markerDrag.value && currentMap.value) {
     const marker = currentMap.value.markers.find((item) => item.id === markerDrag.value?.id)
     if (marker) {
@@ -822,6 +911,14 @@ function movePointer(event: PointerEvent) {
 }
 
 async function stopPointer() {
+  if (intervalDrag.value && currentMap.value) {
+    const drag = intervalDrag.value
+    const interval = drag.id == null ? null : currentMap.value.intervals.find((item) => item.id === drag.id)
+    if (interval && drag.moved) await map.updateInterval(currentMap.value.id, interval.id, intervalPayload(intervalForm))
+    intervalDrag.value = null
+    panDrag.value = null
+    return
+  }
   if (markerDrag.value && currentMap.value) {
     const marker = currentMap.value.markers.find((item) => item.id === markerDrag.value?.id)
     if (marker && markerDrag.value.moved) {

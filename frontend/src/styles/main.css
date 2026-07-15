@@ -128,6 +128,7 @@ button { font: inherit; cursor: pointer; }
 .marker-hotspot { z-index: 2; }
 .marker-hotspot.interval-endpoint { width: 3px; height: 3px; inline-size: 3px; block-size: 3px; max-inline-size: 3px; max-block-size: 3px; }
 .interval-hotspot { position: absolute; z-index: 1; left: var(--interval-x); top: var(--interval-y); width: var(--interval-width); height: 4px; transform: translate(-50%, -50%) rotate(var(--interval-angle)); transform-origin: center; border: 0; border-radius: 0; background: transparent; padding: 0; }
+.map-editor-layout.editing .interval-hotspot { cursor: move; }
 .interval-hotspot::before { content: ""; position: absolute; inset: 1.5px 0; border-radius: 999px; background: #f59e0b; box-shadow: 0 0 0 .5px rgba(120, 53, 15, .7); }
 .interval-hotspot:hover::before, .interval-hotspot.active::before { background: #fbbf24; box-shadow: 0 0 0 .75px rgba(120, 53, 15, .65); }
 .interval-hotspot.selected::before { background: #f59e0b; box-shadow: 0 0 0 1px #0f766e; }

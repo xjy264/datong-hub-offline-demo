@@ -169,13 +169,13 @@ public class MapDocumentService {
     public IntervalView createInterval(CurrentUser user, String mapId, IntervalRequest request) {
         requireAuthenticated(user);
         requireMap(mapId);
-        List<String> baseStations = validateInterval(mapId, null, request);
-        double directionOffset = validateDirectionOffset(request.directionOffset());
+        List<String> baseStations = normalizeBaseStations(request.baseStations());
         String id = "interval-" + UUID.randomUUID();
         jdbcTemplate.update("""
-                INSERT INTO map_interval (id, map_id, marker_a_id, marker_b_id, base_stations, direction_offset, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """, id, mapId, request.markerAId(), request.markerBId(), String.join("\n", baseStations), directionOffset);
+                INSERT INTO map_interval (id, map_id, marker_a_id, marker_b_id, base_stations, position_x, position_y, interval_length, direction_angle, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, id, mapId, normalizeMarkerId(request.markerAId()), normalizeMarkerId(request.markerBId()),
+                String.join("\n", baseStations), request.x(), request.y(), request.length(), request.angle());
         return interval(mapId, id);
     }
 
@@ -183,13 +183,14 @@ public class MapDocumentService {
     public IntervalView updateInterval(CurrentUser user, String mapId, String intervalId, IntervalRequest request) {
         requireAuthenticated(user);
         requireMap(mapId);
-        List<String> baseStations = validateInterval(mapId, intervalId, request);
-        double directionOffset = validateDirectionOffset(request.directionOffset());
+        List<String> baseStations = normalizeBaseStations(request.baseStations());
         int updated = jdbcTemplate.update("""
                 UPDATE map_interval
-                SET marker_a_id = ?, marker_b_id = ?, base_stations = ?, direction_offset = ?, updated_at = CURRENT_TIMESTAMP
+                SET marker_a_id = ?, marker_b_id = ?, base_stations = ?, position_x = ?, position_y = ?,
+                    interval_length = ?, direction_angle = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ? AND map_id = ?
-                """, request.markerAId(), request.markerBId(), String.join("\n", baseStations), directionOffset, intervalId, mapId);
+                """, normalizeMarkerId(request.markerAId()), normalizeMarkerId(request.markerBId()), String.join("\n", baseStations),
+                request.x(), request.y(), request.length(), request.angle(), intervalId, mapId);
         if (updated == 0) throw new BusinessException("车站区间不存在");
         return interval(mapId, intervalId);
     }
@@ -225,56 +226,35 @@ public class MapDocumentService {
 
     private List<IntervalView> intervals(String mapId) {
         return jdbcTemplate.query("""
-                SELECT id, map_id, marker_a_id, marker_b_id, base_stations, direction_offset
+                SELECT id, map_id, marker_a_id, marker_b_id, base_stations, position_x, position_y, interval_length, direction_angle
                 FROM map_interval WHERE map_id = ? ORDER BY created_at, id
                 """, (rs, rowNum) -> new IntervalView(rs.getString("id"), rs.getString("map_id"),
                 rs.getString("marker_a_id"), rs.getString("marker_b_id"),
-                rs.getString("base_stations").lines().toList(), rs.getDouble("direction_offset")), mapId);
+                rs.getString("base_stations").lines().toList(), rs.getDouble("position_x"), rs.getDouble("position_y"),
+                rs.getDouble("interval_length"), rs.getDouble("direction_angle")), mapId);
     }
 
     private IntervalView interval(String mapId, String intervalId) {
         List<IntervalView> matches = jdbcTemplate.query("""
-                SELECT id, map_id, marker_a_id, marker_b_id, base_stations, direction_offset
+                SELECT id, map_id, marker_a_id, marker_b_id, base_stations, position_x, position_y, interval_length, direction_angle
                 FROM map_interval WHERE id = ? AND map_id = ?
                 """, (rs, rowNum) -> new IntervalView(rs.getString("id"), rs.getString("map_id"),
                 rs.getString("marker_a_id"), rs.getString("marker_b_id"),
-                rs.getString("base_stations").lines().toList(), rs.getDouble("direction_offset")), intervalId, mapId);
+                rs.getString("base_stations").lines().toList(), rs.getDouble("position_x"), rs.getDouble("position_y"),
+                rs.getDouble("interval_length"), rs.getDouble("direction_angle")), intervalId, mapId);
         if (matches.isEmpty()) throw new BusinessException("车站区间不存在");
         return matches.getFirst();
     }
 
-    private List<String> validateInterval(String mapId, String intervalId, IntervalRequest request) {
-        if (request == null || request.markerAId() == null || request.markerBId() == null) {
-            throw new BusinessException("请选择两个车站按钮");
-        }
-        if (request.markerAId().equals(request.markerBId())) {
-            throw new BusinessException("请选择两个不同的车站按钮");
-        }
-        Integer markerCount = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM map_marker WHERE map_id = ? AND id IN (?, ?)
-                """, Integer.class, mapId, request.markerAId(), request.markerBId());
-        if (markerCount == null || markerCount != 2) throw new BusinessException("车站按钮不存在");
-        Integer duplicateCount = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*) FROM map_interval
-                WHERE map_id = ? AND (? IS NULL OR id <> ?)
-                  AND ((marker_a_id = ? AND marker_b_id = ?) OR (marker_a_id = ? AND marker_b_id = ?))
-                """, Integer.class, mapId, intervalId, intervalId, request.markerAId(), request.markerBId(),
-                request.markerBId(), request.markerAId());
-        if (duplicateCount != null && duplicateCount > 0) throw new BusinessException("该车站区间已存在");
-        List<String> baseStations = request.baseStations() == null ? List.of() : request.baseStations().stream()
+    private String normalizeMarkerId(String markerId) {
+        return markerId == null || markerId.isBlank() ? null : markerId;
+    }
+
+    private List<String> normalizeBaseStations(List<String> baseStations) {
+        return baseStations == null ? List.of() : baseStations.stream()
                 .map(value -> value == null ? "" : value.trim())
                 .filter(value -> !value.isBlank())
                 .toList();
-        if (baseStations.isEmpty()) throw new BusinessException("请填写基站信息");
-        return baseStations;
-    }
-
-    private double validateDirectionOffset(Double directionOffset) {
-        double value = directionOffset == null ? 0 : directionOffset;
-        if (!Double.isFinite(value) || value < -180 || value > 180) {
-            throw new BusinessException("区间方向角度必须在-180°到180°之间");
-        }
-        return value;
     }
 
     private MapSummary mapSummary(String mapId) {
