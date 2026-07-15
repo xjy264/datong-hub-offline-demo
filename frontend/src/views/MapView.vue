@@ -330,7 +330,7 @@ import { useMapStore } from '../stores/map'
 import type { MapInterval, MapMarker, Station, StationFolder, StationImage } from '../types'
 import { createIntervalDraft } from '../utils/intervalDraft'
 import { intervalGeometry, intervalPreviewGeometry } from '../utils/intervalGeometry'
-import { nextSidebarStationId } from '../utils/mapMarkerClick'
+import { nextSidebarStationId, sidebarSelectionOnEditToggle } from '../utils/mapMarkerClick'
 import { focusMarkerTransform, markerSuggestions } from '../utils/mapSearch'
 import { createMarkerDraft } from '../utils/markerDraft'
 import { intervalMarkerLabel, markerEditStationOptions, markerTypeForStation } from '../utils/markerEdit'
@@ -597,6 +597,8 @@ async function saveSidebarStation() {
 function toggleEdit() {
   editMode.value = !editMode.value
   selectedMarkerId.value = ''
+  selectedSidebarStationId.value = sidebarSelectionOnEditToggle(editMode.value, selectedSidebarStationId.value)
+  selectedSidebarIntervalId.value = sidebarSelectionOnEditToggle(editMode.value, selectedSidebarIntervalId.value)
   intervalDrag.value = null
   clearDraftMarker()
   clearIntervalEdit()
