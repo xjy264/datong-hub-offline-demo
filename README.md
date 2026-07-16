@@ -22,6 +22,12 @@ cd frontend && npm install && npm run dev
 # 后端建议使用 deploy/docker-compose.yml 启 MySQL/Redis/MinIO 后再启动 Spring Boot
 ```
 
+## Windows Server 原生部署
+
+目标环境排除WSL2、Hyper-V和Linux容器时，使用完整Windows离线包。包内包含前后端一体化JAR、便携Java、备用MySQL、MinIO、Windows服务包装器、分阶段向导和中文手册。
+
+部署人员解压到 `C:\DatongMap` 后双击 `开始部署.cmd`。向导先只读检测环境，兼容的已有MySQL 8.x优先复用，异常时生成HTML报告和脱敏诊断包。详细步骤见 `deploy/windows/Windows部署操作手册.md`。
+
 ## 存储约定
 
 - MySQL 只保存站点、目录、图片元数据。

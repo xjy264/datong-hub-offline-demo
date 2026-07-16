@@ -1,0 +1,16 @@
+<service>
+  <id>DatongMapBackend</id>
+  <name>大同示意图应用服务</name>
+  <description>大同示意图前端与API服务</description>
+  <executable>@@JAVA_EXE@@</executable>
+  <arguments>-Xms256m -Xmx768m -jar &quot;@@APP_JAR@@&quot; --spring.config.additional-location=file:&quot;@@APP_CONFIG@@&quot;</arguments>
+  <depend>DatongMapMinIO</depend>
+  @@MYSQL_DEPENDENCY@@
+  <startmode>Automatic</startmode>
+  <stoptimeout>45sec</stoptimeout>
+  <logpath>@@LOG_PATH@@</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>3</keepFiles>
+  </log>
+</service>

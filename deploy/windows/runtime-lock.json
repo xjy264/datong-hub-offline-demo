@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "name": "Eclipse Temurin JRE",
+      "version": "21.0.11+10",
+      "fileName": "OpenJDK21U-jre_x64_windows_hotspot_21.0.11_10.zip",
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.11%2B10/OpenJDK21U-jre_x64_windows_hotspot_21.0.11_10.zip",
+      "sha256": "be26677aaa20b39a62edcaab4c8857a8b76673b0f45abc0b6143b142b62717e4",
+      "target": "java"
+    },
+    {
+      "name": "MySQL Community Server",
+      "version": "8.0.46",
+      "fileName": "mysql-8.0.46-winx64.zip",
+      "url": "https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.46-winx64.zip",
+      "sha256": "28e9eda019d88eff4478d811ea2110b83f02a3966be157fe91cc55def3ab0d4d",
+      "target": "mysql"
+    },
+    {
+      "name": "MinIO Server",
+      "version": "RELEASE.2024-10-13T13-34-11Z",
+      "fileName": "minio.RELEASE.2024-10-13T13-34-11Z.exe",
+      "url": "https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-10-13T13-34-11Z",
+      "sha256": "93e8cf38fdbe6d9c3e860bb6b0573731fc5439fd22a3db667116d98284845b4f",
+      "target": "minio/minio.exe"
+    },
+    {
+      "name": "MinIO Client",
+      "version": "RELEASE.2024-10-08T09-37-26Z",
+      "fileName": "mc.RELEASE.2024-10-08T09-37-26Z.exe",
+      "url": "https://dl.min.io/client/mc/release/windows-amd64/archive/mc.RELEASE.2024-10-08T09-37-26Z",
+      "sha256": "a4c828dc70169d883ff363546c623609e4c6711ab93e9d50c97f21b03ccad1aa",
+      "target": "minio/mc.exe"
+    },
+    {
+      "name": "WinSW",
+      "version": "2.12.0",
+      "fileName": "WinSW-x64.exe",
+      "url": "https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe",
+      "sha256": "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da",
+      "target": "winsw/WinSW-x64.exe"
+    },
+    {
+      "name": "Microsoft Visual C++ Redistributable",
+      "version": "VS2022-2026-07-16",
+      "fileName": "vc_redist.x64.exe",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/65f6a2c9-1b34-43ef-8a5d-4bbdd407197a/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe",
+      "sha256": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b",
+      "target": "prerequisites/vc_redist.x64.exe"
+    }
+  ]
+}

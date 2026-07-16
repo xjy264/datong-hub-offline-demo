@@ -39,4 +39,15 @@
       <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>windows-package</id>
+      <build>
+        <resources>
+          <resource><directory>src/main/resources</directory></resource>
+          <resource><directory>../frontend/dist</directory><targetPath>static</targetPath></resource>
+        </resources>
+      </build>
+    </profile>
+  </profiles>
 </project>

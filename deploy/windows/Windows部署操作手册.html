@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>大同示意图 Windows 部署操作手册</title>
+<style>body{font:16px/1.7 "Microsoft YaHei",Segoe UI,sans-serif;max-width:980px;margin:32px auto;padding:0 24px;color:#1f2937}h1,h2{color:#075985}section{border:1px solid #cbd5e1;border-radius:10px;padding:18px;margin:18px 0}.pass{border-left:8px solid #16a34a}.warn{border-left:8px solid #eab308}.stop{border-left:8px solid #dc2626}code,pre{background:#f1f5f9;padding:3px 6px;border-radius:5px}pre{padding:14px;overflow:auto}</style></head>
+<body><h1>大同示意图 Windows 部署操作手册</h1>
+<section><h2>1. 部署前准备</h2><p>使用完整离线包 <code>datong-map-windows-offline.zip</code>，解压到 <code>C:\DatongMap</code>。准备已有MySQL管理员凭据。服务器建议8GB以上内存、系统盘20GB以上可用空间。</p></section>
+<section><h2>2. 开始部署</h2><p>双击 <code>开始部署.cmd</code>，权限确认选择“是”。向导按01到05执行，每阶段成功后输入Y继续。</p></section>
+<section class="pass"><h2>绿色PASS</h2><p>当前阶段通过，可以进入下一步。</p></section>
+<section class="warn"><h2>黄色提醒</h2><p>阅读提示并确认配置；例如内存低于推荐值或复用MySQL监听范围由甲方管理。</p></section>
+<section class="stop"><h2>红色STOP</h2><p>停止操作，把reports目录或诊断ZIP发送给远程技术人员。</p></section>
+<section><h2>3. MySQL选择</h2><ul><li>一个MySQL 8.x：按Enter复用。</li><li>多个实例：输入报告中的编号。</li><li>旧MySQL、MariaDB或无兼容服务：输入0，使用项目独立MySQL。</li><li>管理员密码输入时屏幕不显示字符，凭据只用于本次建库。</li></ul></section>
+<section><h2>4. 成功标志</h2><ul><li>environment-report.html为PASS。</li><li>deployment-result.html为PASS。</li><li>项目服务为Running，首页与健康检查为200。</li></ul></section>
+<section><h2>5. 客户端</h2><p>复制client目录和 <code>客户端证书安装.cmd</code> 到每台客户端，双击并输入服务器名称、局域网IP，随后访问 <code>https://服务器IP:8012</code>。</p></section>
+<section><h2>6. 异常处理</h2><pre>C:\DatongMap\scripts\collect-diagnostics.ps1</pre><p>把生成的DatongMap-Diagnostics ZIP发送给远程技术人员。</p></section>
+<section><h2>7. 日常维护</h2><pre>status.ps1
+start.ps1
+stop.ps1
+restart.ps1
+backup.ps1
+restore.ps1 -BackupPath "备份路径"</pre><p>自动保留7个日备份和4个周备份。</p></section>
+<section><h2>8. 卸载</h2><pre>uninstall.ps1</pre><p>默认保留数据和复用的甲方MySQL服务。完整细节请查看同目录Markdown手册。</p></section>
+</body></html>

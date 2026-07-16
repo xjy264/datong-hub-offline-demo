@@ -1,0 +1,16 @@
+<service>
+  <id>DatongMapMinIO</id>
+  <name>大同示意图 MinIO</name>
+  <description>大同示意图图片对象存储</description>
+  <executable>@@MINIO_EXE@@</executable>
+  <arguments>server &quot;@@MINIO_DATA@@&quot; --address 127.0.0.1:9011 --console-address 127.0.0.1:9012</arguments>
+  <env name="MINIO_ROOT_USER" value="@@MINIO_USER@@" />
+  <env name="MINIO_ROOT_PASSWORD" value="@@MINIO_PASSWORD@@" />
+  <startmode>Automatic</startmode>
+  <stoptimeout>30sec</stoptimeout>
+  <logpath>@@LOG_PATH@@</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>3</keepFiles>
+  </log>
+</service>
