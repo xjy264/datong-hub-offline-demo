@@ -43,7 +43,20 @@ function Copy-ZipContent([string]$Archive, [string]$Destination) {
         $source = if ($children.Count -eq 1 -and $children[0].PSIsContainer) { $children[0].FullName } else { $temp }
         New-Item -ItemType Directory -Force -Path $Destination | Out-Null
         Copy-Item (Join-Path $source '*') $Destination -Recurse -Force
-    } finally { Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue }
+    } finally { Remove-Tree $temp }
+}
+
+function Remove-Tree([string]$Path) {
+    if (-not (Test-Path $Path)) { return }
+    if ($IsWindows) {
+        Get-ChildItem $Path -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            if (-not $_.PSIsContainer) { $_.IsReadOnly = $false }
+        }
+    } else {
+        & chmod -R u+w $Path
+        if ($LASTEXITCODE -ne 0) { throw "临时目录权限清理失败：$Path" }
+    }
+    Remove-Item $Path -Recurse -Force
 }
 
 if (-not $SkipBuild) {
@@ -66,7 +79,7 @@ try {
     }
 } finally { $archive.Dispose() }
 
-Remove-Item $stageRoot -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Tree $stageRoot
 New-Item -ItemType Directory -Force -Path (Join-Path $stageRoot 'app') | Out-Null
 Copy-Item $jar (Join-Path $stageRoot 'app/datong-map-server.jar')
 foreach ($folder in @('scripts','service','config')) { Copy-Item (Join-Path $windowsRoot $folder) (Join-Path $stageRoot $folder) -Recurse }
