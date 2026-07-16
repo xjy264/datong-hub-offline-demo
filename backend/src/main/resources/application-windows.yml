@@ -1,0 +1,38 @@
+server:
+  address: ${SERVER_ADDRESS:0.0.0.0}
+  port: ${SERVER_PORT:8012}
+  ssl:
+    enabled: true
+    key-store: ${WINDOWS_TLS_KEYSTORE}
+    key-store-password: ${WINDOWS_TLS_KEYSTORE_PASSWORD}
+    key-store-type: PKCS12
+
+spring:
+  config:
+    activate:
+      on-profile: windows
+  datasource:
+    url: ${MYSQL_URL}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
+
+app:
+  production: true
+  jwt:
+    secret: ${JWT_SECRET}
+  auth:
+    cookie-secure: true
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9011}
+    access-key: ${MINIO_ACCESS_KEY}
+    secret-key: ${MINIO_SECRET_KEY}
+    bucket: ${MINIO_BUCKET:datong-map}
+
+management:
+  health:
+    redis:
+      enabled: false
+
+logging:
+  file:
+    name: ${APP_LOG_FILE:C:/ProgramData/DatongMap/logs/backend/application.log}
