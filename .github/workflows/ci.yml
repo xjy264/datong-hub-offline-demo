@@ -3,6 +3,16 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      windows_offline_package:
+        description: Build the complete Windows offline package
+        type: boolean
+        default: false
+      windows_install_smoke:
+        description: Run native Windows bundled and reused MySQL smoke tests
+        type: boolean
+        default: false
 
 jobs:
   backend:
@@ -55,8 +65,9 @@ jobs:
         working-directory: deploy
       - name: Wait for application health
         run: |
-          for i in $(seq 1 40); do
+          for attempt in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:8012/ >/dev/null; then exit 0; fi
+            echo "waiting for application health ($attempt/40)"
             sleep 5
           done
           docker compose -f deploy/docker-compose.yml ps
@@ -65,3 +76,134 @@ jobs:
       - if: always()
         run: docker compose down -v
         working-directory: deploy
+
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: node --test src/utils/*.test.mjs
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - run: mvn test
+        working-directory: backend
+      - run: mvn -Pwindows-package -DskipTests package
+        working-directory: backend
+      - name: Parse and test PowerShell
+        shell: powershell
+        run: |
+          $errors = @()
+          Get-ChildItem deploy/windows -Recurse -Include *.ps1,*.psm1 | ForEach-Object {
+            $tokens = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors)
+          }
+          if ($errors) { $errors | Format-List; exit 1 }
+          & .\deploy\windows\tests\DatongDeploy.Tests.ps1
+      - name: Build slim Windows package
+        shell: pwsh
+        run: .\deploy\windows\build-package.ps1 -Mode Slim -SkipBuild
+      - uses: actions/upload-artifact@v4
+        with:
+          name: datong-map-windows-slim
+          path: deploy/windows/output/datong-map-windows-slim.zip
+
+  windows-offline-package:
+    if: github.event_name == 'workflow_dispatch' && (inputs.windows_offline_package || inputs.windows_install_smoke)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci && node --test src/utils/*.test.mjs && npm run build
+        working-directory: frontend
+      - run: mvn test && mvn -Pwindows-package -DskipTests package
+        working-directory: backend
+      - name: Build complete offline package
+        shell: pwsh
+        run: .\deploy\windows\build-package.ps1 -Mode Offline -SkipBuild
+      - uses: actions/upload-artifact@v4
+        with:
+          name: datong-map-windows-offline
+          path: deploy/windows/output/datong-map-windows-offline.zip
+
+  windows-install-smoke:
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_install_smoke
+    needs: windows-offline-package
+    strategy:
+      fail-fast: false
+      matrix:
+        mysql-mode: [bundled, reuse]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: datong-map-windows-offline
+          path: C:\DatongSmoke
+      - name: Extract package
+        shell: powershell
+        run: Expand-Archive C:\DatongSmoke\datong-map-windows-offline.zip C:\DatongSmoke\package
+      - name: Prepare reusable MySQL service
+        if: matrix.mysql-mode == 'reuse'
+        shell: powershell
+        run: |
+          $app = 'C:\DatongSmoke\package\datong-map-windows'
+          $mysql = Join-Path $app 'runtime\mysql'
+          $data = 'C:\DatongSmoke\existing-mysql\data'
+          $ini = 'C:\DatongSmoke\existing-mysql\my.ini'
+          New-Item -ItemType Directory -Force -Path (Split-Path $ini) | Out-Null
+          @"
+          [mysqld]
+          basedir=$($mysql.Replace('\','/'))
+          datadir=$($data.Replace('\','/'))
+          port=3307
+          bind-address=127.0.0.1
+          "@ | Set-Content $ini -Encoding ASCII
+          & "$mysql\bin\mysqld.exe" "--defaults-file=$ini" --initialize-insecure
+          & "$mysql\bin\mysqld.exe" "--defaults-file=$ini" --install ExistingMySQL80
+          Start-Service ExistingMySQL80
+      - name: Run staged deployment smoke
+        shell: powershell
+        run: |
+          $app = 'C:\DatongSmoke\package\datong-map-windows'
+          $data = "C:\DatongSmoke\data-${{ matrix.mysql-mode }}"
+          $backup = "C:\DatongSmoke\backup-${{ matrix.mysql-mode }}"
+          & "$app\scripts\01-check-environment.ps1"
+          if ('${{ matrix.mysql-mode }}' -eq 'bundled') {
+            & "$app\scripts\02-configure.ps1" -DataRoot $data -BackupRoot $backup -UseBundledMySql -NonInteractive
+            & "$app\scripts\03-prepare-database.ps1" -DataRoot $data
+          } else {
+            & "$app\scripts\02-configure.ps1" -DataRoot $data -BackupRoot $backup -AcceptRecommended -NonInteractive
+            $empty = New-Object Security.SecureString
+            & "$app\scripts\03-prepare-database.ps1" -DataRoot $data -AdministratorPassword $empty
+          }
+          & "$app\scripts\04-install-services.ps1" -DataRoot $data
+          & "$app\scripts\05-verify.ps1" -DataRoot $data
+          & "$app\scripts\backup.ps1" -DataRoot $data -BackupRoot $backup
+          & "$app\scripts\collect-diagnostics.ps1" -DataRoot $data
+          & "$app\scripts\uninstall.ps1" -DataRoot $data -RemoveData
+      - name: Remove reusable MySQL service
+        if: always() && matrix.mysql-mode == 'reuse'
+        shell: powershell
+        run: |
+          Stop-Service ExistingMySQL80 -Force -ErrorAction SilentlyContinue
+          & 'C:\DatongSmoke\package\datong-map-windows\runtime\mysql\bin\mysqld.exe' --remove ExistingMySQL80

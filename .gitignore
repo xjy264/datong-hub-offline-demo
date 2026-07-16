@@ -4,3 +4,10 @@ node_modules/
 dist/
 target/
 *.tsbuildinfo
+deploy/windows/output/
+deploy/windows/runtime/
+deploy/windows/reports/
+deploy/windows/client/
+deploy/windows/state/
+deploy/windows/*.zip
+deploy/windows/DatongMap-Diagnostics-*.zip
