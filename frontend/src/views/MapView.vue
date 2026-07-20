@@ -420,7 +420,7 @@ const visibleMarkerIds = computed(() => new Set(filteredMarkers.value.map((marke
 const intervalEndpointMarkerIds = computed(() => new Set((currentMap.value?.intervals || [])
   .flatMap((interval) => [interval.markerAId, interval.markerBId])
   .filter((markerId): markerId is string => Boolean(markerId))))
-const canvasStyle = computed(() => ({ transform: `translate(${panX.value}px, ${panY.value}px) scale(${scale.value})`, width: `${currentMap.value?.width || 1191}px`, height: `${currentMap.value?.height || 842}px` }))
+const canvasStyle = computed(() => ({ '--map-inverse-scale': 1 / scale.value, transform: `translate(${panX.value}px, ${panY.value}px) scale(${scale.value})`, width: `${currentMap.value?.width || 1191}px`, height: `${currentMap.value?.height || 842}px` }))
 const baseMapStyle = computed(() => ({ width: `${currentMap.value?.width || 1191}px`, height: `${currentMap.value?.height || 842}px` }))
 const hoverStyle = computed(() => ({ left: `${hoverX.value}px`, top: `${hoverY.value}px` }))
 const selectedMarker = computed(() => currentMap.value?.markers.find((marker) => marker.id === selectedMarkerId.value) || null)
