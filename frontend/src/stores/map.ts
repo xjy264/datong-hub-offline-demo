@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { apiDelete, apiGet, apiPost, apiPut } from '../api/http'
 import type { MapDetail, MapInterval, MapMarker, MapSummary, Station, StationFolder, StationImage, Workshop } from '../types'
+import { replaceById } from '../utils/actionFeedback'
 import { splitUploadBatches } from '../utils/uploadBatches'
 
 export const useMapStore = defineStore('map', {
@@ -69,8 +70,9 @@ export const useMapStore = defineStore('map', {
       await this.loadMap(mapId)
     },
     async updateMarker(mapId: string, markerId: string, body: { stationId: string; x: number; y: number; size: number }) {
-      await apiPut<MapMarker>(`/maps/${mapId}/markers/${markerId}`, body)
-      await this.loadMap(mapId)
+      const updated = await apiPut<MapMarker>(`/maps/${mapId}/markers/${markerId}`, body)
+      if (this.currentMap?.id === mapId) this.currentMap.markers = replaceById(this.currentMap.markers, updated)
+      return updated
     },
     async deleteMarker(mapId: string, markerId: string) {
       await apiDelete(`/maps/${mapId}/markers/${markerId}`)
@@ -81,8 +83,9 @@ export const useMapStore = defineStore('map', {
       await this.loadMap(mapId)
     },
     async updateInterval(mapId: string, intervalId: string, body: { markerAId: string | null; markerBId: string | null; baseStations: string[]; x: number; y: number; length: number; angle: number }) {
-      await apiPut<MapInterval>(`/maps/${mapId}/intervals/${intervalId}`, body)
-      await this.loadMap(mapId)
+      const updated = await apiPut<MapInterval>(`/maps/${mapId}/intervals/${intervalId}`, body)
+      if (this.currentMap?.id === mapId) this.currentMap.intervals = replaceById(this.currentMap.intervals, updated)
+      return updated
     },
     async deleteInterval(mapId: string, intervalId: string) {
       await apiDelete(`/maps/${mapId}/intervals/${intervalId}`)
@@ -123,8 +126,6 @@ export const useMapStore = defineStore('map', {
     },
     async renameFolder(folderId: string, name: string) {
       await apiPut(`/folders/${folderId}`, { name })
-      if (this.currentMap) await this.loadMap(this.currentMap.id)
-      else await this.load(true)
     },
     async deleteFolder(folderId: string) {
       await apiDelete(`/folders/${folderId}`)

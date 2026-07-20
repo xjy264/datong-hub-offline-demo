@@ -31,3 +31,17 @@ test('marks only handled API errors for console suppression', () => {
   assert.equal(feedback.isHandledApiError?.(handled), true)
   assert.equal(feedback.isHandledApiError?.(programError), false)
 })
+
+test('replaces one saved entity without requiring a follow-up refresh', () => {
+  const original = [{ id: 'a', x: 1 }, { id: 'b', x: 2 }]
+  const updated = { id: 'b', x: 9 }
+  assert.deepEqual(feedback.replaceById?.(original, updated), [{ id: 'a', x: 1 }, updated])
+})
+
+test('locks one auto-save target until its pending request finishes', () => {
+  const lock = feedback.createActionLock?.()
+  assert.equal(lock?.tryStart('marker:a'), true)
+  assert.equal(lock?.tryStart('marker:a'), false)
+  lock?.finish('marker:a')
+  assert.equal(lock?.tryStart('marker:a'), true)
+})

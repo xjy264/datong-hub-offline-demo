@@ -328,7 +328,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
 import type { MapInterval, MapMarker, Station, StationFolder, StationImage } from '../types'
-import { isHandledApiError, normalizeRequiredName, positionSnapshot, restorePosition } from '../utils/actionFeedback'
+import { createActionLock, isHandledApiError, normalizeRequiredName, positionSnapshot, restorePosition } from '../utils/actionFeedback'
 import { createIntervalDraft } from '../utils/intervalDraft'
 import { intervalGeometry, intervalPreviewGeometry } from '../utils/intervalGeometry'
 import { nextSidebarStationId, sidebarSelectionOnEditToggle } from '../utils/mapMarkerClick'
@@ -378,6 +378,7 @@ const hoverMarker = ref<MapMarker | null>(null)
 const hoverInterval = ref<MapInterval | null>(null)
 const hoverX = ref(0)
 const hoverY = ref(0)
+const positionSaveLock = createActionLock()
 
 onMounted(async () => {
   await map.load()
@@ -746,6 +747,7 @@ function clickMarker(marker: MapMarker) {
 
 function startMarkerDrag(marker: MapMarker, event: PointerEvent) {
   if (!editMode.value) return
+  if (positionSaveLock.isActive(`marker:${marker.id}`)) return
   clearDraftMarker()
   clearIntervalEdit()
   selectedSidebarIntervalId.value = ''
@@ -759,6 +761,7 @@ function startMarkerDrag(marker: MapMarker, event: PointerEvent) {
 
 function startIntervalDrag(interval: MapInterval, event: PointerEvent) {
   if (!editMode.value) return
+  if (positionSaveLock.isActive(`interval:${interval.id}`)) return
   if (selectedIntervalId.value !== interval.id) clickInterval(interval)
   intervalDrag.value = { id: interval.id, moved: false, original: positionSnapshot(interval) }
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
@@ -926,8 +929,12 @@ function movePointer(event: PointerEvent) {
 async function stopPointer() {
   if (intervalDrag.value && currentMap.value) {
     const drag = intervalDrag.value
+    intervalDrag.value = null
+    panDrag.value = null
     const interval = drag.id == null ? null : currentMap.value.intervals.find((item) => item.id === drag.id)
     if (interval && drag.moved) {
+      const lockKey = `interval:${interval.id}`
+      if (!positionSaveLock.tryStart(lockKey)) return
       try {
         await map.updateInterval(currentMap.value.id, interval.id, intervalPayload(intervalForm))
         ElMessage.success('区间位置已自动保存')
@@ -935,24 +942,31 @@ async function stopPointer() {
         restorePosition(interval, drag.original)
         restorePosition(intervalForm, drag.original)
         if (!isHandledApiError(error)) throw error
+      } finally {
+        positionSaveLock.finish(lockKey)
       }
     }
-    intervalDrag.value = null
-    panDrag.value = null
     return
   }
   if (markerDrag.value && currentMap.value) {
     const drag = markerDrag.value
+    markerDrag.value = null
+    panDrag.value = null
     const marker = currentMap.value.markers.find((item) => item.id === drag.id)
     if (marker && drag.moved) {
+      const lockKey = `marker:${marker.id}`
+      if (!positionSaveLock.tryStart(lockKey)) return
       try {
         await map.updateMarker(currentMap.value.id, marker.id, { stationId: marker.station.id, x: marker.x, y: marker.y, size: stationMarkerSize(marker.station) })
         ElMessage.success('车站按钮位置已自动保存')
       } catch (error) {
         restorePosition(marker, drag.original)
         if (!isHandledApiError(error)) throw error
+      } finally {
+        positionSaveLock.finish(lockKey)
       }
     }
+    return
   }
   markerDrag.value = null
   panDrag.value = null

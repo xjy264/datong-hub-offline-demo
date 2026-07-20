@@ -19,6 +19,27 @@ export function restorePosition(target: Position, original: Position) {
   target.y = original.y
 }
 
+export function replaceById<T extends { id: string }>(items: T[], updated: T) {
+  return items.map((item) => item.id === updated.id ? updated : item)
+}
+
+export function createActionLock() {
+  const active = new Set<string>()
+  return {
+    isActive(key: string) {
+      return active.has(key)
+    },
+    tryStart(key: string) {
+      if (active.has(key)) return false
+      active.add(key)
+      return true
+    },
+    finish(key: string) {
+      active.delete(key)
+    }
+  }
+}
+
 export function markHandledApiError<T>(error: T): T {
   if ((typeof error === 'object' && error !== null) || typeof error === 'function') {
     handledApiErrors.add(error as object)

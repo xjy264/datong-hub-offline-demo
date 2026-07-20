@@ -49,9 +49,12 @@ http.interceptors.response.use(
     const status = error.response?.status
     const message = error.response?.data?.message || (status === 401 ? '登录状态已失效，请重新登录。' : '无法连接系统服务，请确认网络正常后重试。')
     if (status === 401) {
-      const action = unauthorizedSessionAction(window.location.pathname)
+      const headers = error.config?.headers
+      const silentRequest = (typeof headers?.get === 'function' ? headers.get('X-Silent-Error') : headers?.['X-Silent-Error']) === '1'
+      const action = unauthorizedSessionAction(window.location.pathname, silentRequest)
       if (action.clearLocalSession) useAuthStore().logoutLocal()
       if (action.redirectToLogin && action.loginUrl) window.location.replace(action.loginUrl)
+      else if (action.showMessage) ElMessage.error(message)
     } else {
       ElMessage.error(message)
     }
