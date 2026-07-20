@@ -5,13 +5,23 @@ import { unauthorizedSessionAction } from './unauthorizedAction.ts'
 test('unauthorized handling clears local session and redirects from protected pages', () => {
   assert.deepEqual(unauthorizedSessionAction('/map'), {
     clearLocalSession: true,
-    redirectToLogin: true
+    redirectToLogin: true,
+    loginUrl: '/login?reason=expired'
   })
 })
 
 test('unauthorized handling does not redirect again on login page', () => {
   assert.deepEqual(unauthorizedSessionAction('/login'), {
     clearLocalSession: true,
-    redirectToLogin: false
+    redirectToLogin: false,
+    loginUrl: null
+  })
+})
+
+test('unauthorized session probe stays silent on the registration page', () => {
+  assert.deepEqual(unauthorizedSessionAction('/register'), {
+    clearLocalSession: true,
+    redirectToLogin: false,
+    loginUrl: null
   })
 })

@@ -328,6 +328,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
 import type { MapInterval, MapMarker, Station, StationFolder, StationImage } from '../types'
+import { isHandledApiError, normalizeRequiredName, positionSnapshot, restorePosition } from '../utils/actionFeedback'
 import { createIntervalDraft } from '../utils/intervalDraft'
 import { intervalGeometry, intervalPreviewGeometry } from '../utils/intervalGeometry'
 import { nextSidebarStationId, sidebarSelectionOnEditToggle } from '../utils/mapMarkerClick'
@@ -342,6 +343,7 @@ import { workshopName as resolveWorkshopName, workshopPath } from '../utils/work
 type DraftMarker = { x: number; y: number; size: number }
 type IntervalForm = { markerAId: string | null; markerBId: string | null; baseStations: string[]; x: number; y: number; length: number; angle: number }
 type SearchSuggestion = ReturnType<typeof markerSuggestions>[number]
+type Position = ReturnType<typeof positionSnapshot>
 
 const map = useMapStore()
 const router = useRouter()
@@ -369,8 +371,8 @@ const scale = ref(1)
 const panX = ref(0)
 const panY = ref(0)
 const panDrag = ref<{ x: number; y: number; panX: number; panY: number } | null>(null)
-const markerDrag = ref<{ id: string; moved: boolean } | null>(null)
-const intervalDrag = ref<{ id: string | null; moved: boolean } | null>(null)
+const markerDrag = ref<{ id: string; moved: boolean; original: Position } | null>(null)
+const intervalDrag = ref<{ id: string | null; moved: boolean; original: Position } | null>(null)
 const draftMarker = ref<DraftMarker | null>(null)
 const hoverMarker = ref<MapMarker | null>(null)
 const hoverInterval = ref<MapInterval | null>(null)
@@ -551,8 +553,17 @@ function ensureSidebarSelection() {
 }
 
 async function createWorkshop() {
-  const name = await ElMessageBox.prompt('请输入车间名称', '新增车间', { inputValue: '新车间' }).then((result) => result.value.trim()).catch(() => '')
-  if (!name) return
+  let inputValue: string
+  try {
+    inputValue = (await ElMessageBox.prompt('请输入车间名称', '新增车间', { inputValue: '新车间' })).value
+  } catch {
+    return
+  }
+  const name = normalizeRequiredName(inputValue)
+  if (!name) {
+    ElMessage.warning('车间名称不能为空')
+    return
+  }
   const workshop = await map.createWorkshop(name)
   ElMessage.success('已新增车间')
   router.push(workshopPath(workshop))
@@ -742,20 +753,20 @@ function startMarkerDrag(marker: MapMarker, event: PointerEvent) {
   selectedSidebarStationId.value = marker.station.id
   selectedMarkerStationId.value = marker.station.id
   selectedMarkerType.value = stationType(marker.station)
-  markerDrag.value = { id: marker.id, moved: false }
+  markerDrag.value = { id: marker.id, moved: false, original: positionSnapshot(marker) }
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
 }
 
 function startIntervalDrag(interval: MapInterval, event: PointerEvent) {
   if (!editMode.value) return
   if (selectedIntervalId.value !== interval.id) clickInterval(interval)
-  intervalDrag.value = { id: interval.id, moved: false }
+  intervalDrag.value = { id: interval.id, moved: false, original: positionSnapshot(interval) }
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
 }
 
 function startDraftIntervalDrag(event: PointerEvent) {
   if (!editMode.value || !intervalDraft.value) return
-  intervalDrag.value = { id: null, moved: false }
+  intervalDrag.value = { id: null, moved: false, original: positionSnapshot(intervalForm) }
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
 }
 
@@ -916,15 +927,31 @@ async function stopPointer() {
   if (intervalDrag.value && currentMap.value) {
     const drag = intervalDrag.value
     const interval = drag.id == null ? null : currentMap.value.intervals.find((item) => item.id === drag.id)
-    if (interval && drag.moved) await map.updateInterval(currentMap.value.id, interval.id, intervalPayload(intervalForm))
+    if (interval && drag.moved) {
+      try {
+        await map.updateInterval(currentMap.value.id, interval.id, intervalPayload(intervalForm))
+        ElMessage.success('区间位置已自动保存')
+      } catch (error) {
+        restorePosition(interval, drag.original)
+        restorePosition(intervalForm, drag.original)
+        if (!isHandledApiError(error)) throw error
+      }
+    }
     intervalDrag.value = null
     panDrag.value = null
     return
   }
   if (markerDrag.value && currentMap.value) {
-    const marker = currentMap.value.markers.find((item) => item.id === markerDrag.value?.id)
-    if (marker && markerDrag.value.moved) {
-      await map.updateMarker(currentMap.value.id, marker.id, { stationId: marker.station.id, x: marker.x, y: marker.y, size: stationMarkerSize(marker.station) })
+    const drag = markerDrag.value
+    const marker = currentMap.value.markers.find((item) => item.id === drag.id)
+    if (marker && drag.moved) {
+      try {
+        await map.updateMarker(currentMap.value.id, marker.id, { stationId: marker.station.id, x: marker.x, y: marker.y, size: stationMarkerSize(marker.station) })
+        ElMessage.success('车站按钮位置已自动保存')
+      } catch (error) {
+        restorePosition(marker, drag.original)
+        if (!isHandledApiError(error)) throw error
+      }
     }
   }
   markerDrag.value = null

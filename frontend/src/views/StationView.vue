@@ -65,6 +65,7 @@
                 <el-input
                   :ref="(el: unknown) => setFolderInputRef(data.id, el)"
                   v-model="data.folder.name"
+                  @focus="rememberFolderName(data.folder.id, data.folder.name)"
                   @change="renameFolder(data.folder.id, data.folder.name)"
                 />
                 <span class="folder-count">{{ countImages([data.folder]) }}图{{ data.folder.children.length ? ` · ${data.folder.children.length}级` : '' }}</span>
@@ -121,6 +122,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
 import type { StationFolder } from '../types'
+import { isHandledApiError } from '../utils/actionFeedback'
 import { findNumberedFolderNode, numberedFolderTree, type NumberedFolderNode } from '../utils/folderTree'
 import { imageViewerScale } from '../utils/imageViewerScale'
 import { workshopName as resolveWorkshopName } from '../utils/workshopRoute'
@@ -136,6 +138,7 @@ const previewIndex = ref(0)
 const imageSizes = reactive<Record<string, { width: number; height: number }>>({})
 const previewViewport = reactive(currentViewport())
 const folderInputs = new Map<string, { focus: () => void }>()
+const folderNamesBeforeEdit = new Map<string, string>()
 const form = reactive<{ name: string; notes: string; mileage: string; workshopId: number | null }>({ name: '', notes: '', mileage: '', workshopId: null })
 const station = computed(() => map.stationById(String(route.params.id)))
 const workshops = computed(() => map.workshops)
@@ -195,17 +198,33 @@ function goWorkshop() {
 async function addRootFolder() {
   if (!station.value) return
   const folder = await map.addFolder(station.value.id, null)
+  ElMessage.success('已新增目录')
   await selectAndFocusFolder(folder.id)
 }
 
 async function addChildFolder(parentId: string) {
   if (!station.value) return
   const folder = await map.addFolder(station.value.id, parentId)
+  ElMessage.success('已新增目录')
   await selectAndFocusFolder(folder.id)
 }
 
 async function renameFolder(folderId: string, name: string) {
-  await map.renameFolder(folderId, name)
+  const originalName = folderNamesBeforeEdit.get(folderId) ?? name
+  try {
+    await map.renameFolder(folderId, name)
+    ElMessage.success('目录名称已保存')
+  } catch (error) {
+    const folder = findNumberedFolderNode(folderTree.value, folderId)?.folder
+    if (folder) folder.name = originalName
+    if (!isHandledApiError(error)) throw error
+  } finally {
+    folderNamesBeforeEdit.delete(folderId)
+  }
+}
+
+function rememberFolderName(folderId: string, name: string) {
+  folderNamesBeforeEdit.set(folderId, name)
 }
 
 async function deleteFolder(folderId: string) {

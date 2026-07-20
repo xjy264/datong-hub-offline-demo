@@ -22,18 +22,28 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { apiPost } from '../api/http'
 import { useAuthStore } from '../stores/auth'
+import { loginNotice } from '../utils/actionFeedback'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const loading = ref(false)
 const REMEMBER_PHONE_KEY = 'datong-map:remember-phone'
 const rememberedPhone = localStorage.getItem(REMEMBER_PHONE_KEY) || ''
 const rememberPhone = ref(Boolean(rememberedPhone))
 const form = reactive({ phone: rememberedPhone, password: '' })
+
+onMounted(() => {
+  const notice = loginNotice(route.query.reason)
+  if (!notice) return
+  ElMessage.warning(notice)
+  router.replace('/login')
+})
 
 async function login() {
   loading.value = true

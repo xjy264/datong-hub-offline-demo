@@ -34,6 +34,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
+import { normalizeRequiredName } from '../utils/actionFeedback'
 
 const map = useMapStore()
 const router = useRouter()
@@ -50,7 +51,7 @@ async function uploadPdf(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  const name = await ElMessageBox.prompt('请输入地图名称', '上传背景 PDF', { inputValue: file.name.replace(/\.pdf$/i, '') }).then((result) => result.value).catch(() => '')
+  const name = await promptMapName('上传背景 PDF', file.name.replace(/\.pdf$/i, ''))
   input.value = ''
   if (!name) return
   await map.createMap(name, file)
@@ -59,7 +60,7 @@ async function uploadPdf(event: Event) {
 }
 
 async function renameMap(mapId: string, currentName: string) {
-  const name = await ElMessageBox.prompt('请输入地图名称', '修改地图名称', { inputValue: currentName }).then((result) => result.value).catch(() => '')
+  const name = await promptMapName('修改地图名称', currentName)
   if (!name) return
   await map.renameMap(mapId, name)
   ElMessage.success('已修改地图名称')
@@ -74,5 +75,16 @@ async function deleteMap(mapId: string, name: string) {
   if (!confirmed) return
   await map.deleteMap(mapId)
   ElMessage.success('已删除地图')
+}
+
+async function promptMapName(title: string, inputValue: string) {
+  try {
+    const result = await ElMessageBox.prompt('请输入地图名称', title, { inputValue })
+    const name = normalizeRequiredName(result.value)
+    if (!name) ElMessage.warning('地图名称不能为空')
+    return name
+  } catch {
+    return null
+  }
 }
 </script>

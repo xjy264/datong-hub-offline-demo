@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
+import { markHandledApiError } from '../utils/actionFeedback'
 import { unauthorizedSessionAction } from '../utils/unauthorizedAction'
 
 export interface ApiResult<T> {
@@ -40,7 +41,7 @@ http.interceptors.response.use(
     const result = response.data as ApiResult<unknown>
     if (result && typeof result.code === 'number' && result.code !== 200) {
       ElMessage.error(result.message || '操作未完成，请稍后重试。')
-      return Promise.reject(new Error(result.message))
+      return Promise.reject(markHandledApiError(new Error(result.message)))
     }
     return response
   },
@@ -50,11 +51,11 @@ http.interceptors.response.use(
     if (status === 401) {
       const action = unauthorizedSessionAction(window.location.pathname)
       if (action.clearLocalSession) useAuthStore().logoutLocal()
-      if (action.redirectToLogin) window.location.replace('/login')
+      if (action.redirectToLogin && action.loginUrl) window.location.replace(action.loginUrl)
     } else {
       ElMessage.error(message)
     }
-    return Promise.reject(error)
+    return Promise.reject(markHandledApiError(error))
   }
 )
 
