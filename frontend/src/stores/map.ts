@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { apiDelete, apiGet, apiPost, apiPut } from '../api/http'
 import type { MapDetail, MapInterval, MapMarker, MapSummary, Station, StationFolder, StationImage, Workshop } from '../types'
-import { replaceById } from '../utils/actionFeedback'
+import { normalizeFolderName, replaceById } from '../utils/actionFeedback'
 import { splitUploadBatches } from '../utils/uploadBatches'
 
 export const useMapStore = defineStore('map', {
@@ -125,7 +125,9 @@ export const useMapStore = defineStore('map', {
       return folder
     },
     async renameFolder(folderId: string, name: string) {
-      await apiPut(`/folders/${folderId}`, { name })
+      const normalizedName = normalizeFolderName(name)
+      await apiPut(`/folders/${folderId}`, { name: normalizedName })
+      return normalizedName
     },
     async deleteFolder(folderId: string) {
       await apiDelete(`/folders/${folderId}`)

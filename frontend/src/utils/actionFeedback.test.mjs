@@ -8,6 +8,11 @@ test('normalizes confirmed prompt names and rejects blank values', () => {
   assert.equal(feedback.normalizeRequiredName?.('   '), null)
 })
 
+test('normalizes folder names exactly like the backend', () => {
+  assert.equal(feedback.normalizeFolderName?.('  设备资料  '), '设备资料')
+  assert.equal(feedback.normalizeFolderName?.('   '), '新建目录')
+})
+
 test('maps the expired login reason to one user-facing notice', () => {
   assert.equal(feedback.loginNotice?.('expired'), '登录状态已过期，请重新登录。')
   assert.equal(feedback.loginNotice?.('other'), '')

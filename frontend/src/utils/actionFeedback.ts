@@ -6,6 +6,10 @@ export function normalizeRequiredName(value: string) {
   return value.trim() || null
 }
 
+export function normalizeFolderName(value: string) {
+  return value.trim() || '新建目录'
+}
+
 export function loginNotice(reason: unknown) {
   return reason === 'expired' ? '登录状态已过期，请重新登录。' : ''
 }

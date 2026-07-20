@@ -212,7 +212,9 @@ async function addChildFolder(parentId: string) {
 async function renameFolder(folderId: string, name: string) {
   const originalName = folderNamesBeforeEdit.get(folderId) ?? name
   try {
-    await map.renameFolder(folderId, name)
+    const savedName = await map.renameFolder(folderId, name)
+    const folder = findNumberedFolderNode(folderTree.value, folderId)?.folder
+    if (folder) folder.name = savedName
     ElMessage.success('目录名称已保存')
   } catch (error) {
     const folder = findNumberedFolderNode(folderTree.value, folderId)?.folder

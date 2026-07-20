@@ -667,14 +667,27 @@ async function saveInterval() {
     length: intervalForm.length,
     angle: intervalForm.angle
   }
-  if (intervalDraft.value) await map.createInterval(currentMap.value.id, body)
-  else if (selectedInterval.value) await map.updateInterval(currentMap.value.id, selectedInterval.value.id, body)
-  clearIntervalEdit()
-  ElMessage.success('已保存车站区间')
+  const lockKey = !intervalDraft.value && selectedInterval.value ? `interval:${selectedInterval.value.id}` : null
+  if (lockKey && !positionSaveLock.tryStart(lockKey)) {
+    ElMessage.warning('区间位置正在保存，请稍后再试')
+    return
+  }
+  try {
+    if (intervalDraft.value) await map.createInterval(currentMap.value.id, body)
+    else if (selectedInterval.value) await map.updateInterval(currentMap.value.id, selectedInterval.value.id, body)
+    clearIntervalEdit()
+    ElMessage.success('已保存车站区间')
+  } finally {
+    if (lockKey) positionSaveLock.finish(lockKey)
+  }
 }
 
 async function deleteInterval() {
   if (!currentMap.value || !selectedInterval.value) return
+  if (positionSaveLock.isActive(`interval:${selectedInterval.value.id}`)) {
+    ElMessage.warning('区间位置正在保存，请稍后再试')
+    return
+  }
   const confirmed = await ElMessageBox.confirm('删除后将无法恢复。', '删除车站区间', {
     confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning'
   }).then(() => true).catch(() => false)
@@ -819,13 +832,22 @@ async function saveSelectedMarker() {
   const marker = selectedMarker.value
   if (!station || !marker) return
   const stationSize = stationMarkerSize(station)
-  await map.updateMarker(currentMap.value.id, marker.id, {
-    stationId: selectedMarkerStationId.value,
-    x: marker.x,
-    y: marker.y,
-    size: stationSize
-  })
-  ElMessage.success('已保存组件')
+  const lockKey = `marker:${marker.id}`
+  if (!positionSaveLock.tryStart(lockKey)) {
+    ElMessage.warning('车站按钮位置正在保存，请稍后再试')
+    return
+  }
+  try {
+    await map.updateMarker(currentMap.value.id, marker.id, {
+      stationId: selectedMarkerStationId.value,
+      x: marker.x,
+      y: marker.y,
+      size: stationSize
+    })
+    ElMessage.success('已保存组件')
+  } finally {
+    positionSaveLock.finish(lockKey)
+  }
 }
 
 async function deleteSelectedMarker(confirmDelete = false) {
@@ -834,6 +856,10 @@ async function deleteSelectedMarker(confirmDelete = false) {
     return
   }
   if (!currentMap.value || !selectedMarker.value) return
+  if (positionSaveLock.isActive(`marker:${selectedMarker.value.id}`)) {
+    ElMessage.warning('车站按钮位置正在保存，请稍后再试')
+    return
+  }
   if (confirmDelete) {
     const confirmed = await ElMessageBox.confirm('只删除当前地图按钮，不删除车站资料、目录和图片。', '删除地图按钮', {
       confirmButtonText: '确认删除',
