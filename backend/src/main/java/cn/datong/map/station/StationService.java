@@ -82,11 +82,14 @@ public class StationService {
         jdbcTemplate.query("""
                 SELECT id, station_id, folder_id, name, content_type, size_bytes, created_at FROM station_image ORDER BY created_at
                 """, rs -> {
+            StationImageView image = new StationImageView(
+                    rs.getString("id"), rs.getString("name"), rs.getString("content_type"), rs.getLong("size_bytes"),
+                    rs.getObject("created_at", LocalDateTime.class), "/api/images/" + rs.getString("id"));
             FolderMutable folder = folders.get(rs.getString("folder_id"));
             if (folder != null) {
-                folder.images().add(new StationImageView(
-                        rs.getString("id"), rs.getString("name"), rs.getString("content_type"), rs.getLong("size_bytes"),
-                        rs.getObject("created_at", LocalDateTime.class), "/api/images/" + rs.getString("id")));
+                folder.images().add(image);
+            } else if (rs.getString("folder_id") == null && stations.containsKey(rs.getString("station_id"))) {
+                stations.get(rs.getString("station_id")).overviewImages().add(image);
             }
         });
         return stations.values().stream().map(StationMutable::view).toList();
@@ -175,6 +178,16 @@ public class StationService {
         requireStation(stationId);
         FolderRow folder = requireFolder(folderId);
         if (!stationId.equals(folder.stationId())) throw new BusinessException("目录不属于当前站点");
+        return storeImages(stationId, folderId, files);
+    }
+
+    @Transactional
+    public List<StationImageView> uploadOverviewImages(String stationId, MultipartFile[] files) throws Exception {
+        requireStation(stationId);
+        return storeImages(stationId, null, files);
+    }
+
+    private List<StationImageView> storeImages(String stationId, String folderId, MultipartFile[] files) throws Exception {
         uploadPolicy.validateBatch(files);
         List<StationImageView> uploaded = new ArrayList<>();
         List<StoredObject> storedObjects = new ArrayList<>();
@@ -266,7 +279,8 @@ public class StationService {
     private SaveResult saveImage(String stationId, String folderId, String name, String contentType, InputStream input, long size) {
         String id = "image-" + UUID.randomUUID();
         String safeName = safeName(name);
-        StoredObject object = storage.upload(input, size, contentType, "stations/%s/%s/%s-%s".formatted(stationId, folderId, id, safeName));
+        String imageGroup = folderId == null ? "overview" : folderId;
+        StoredObject object = storage.upload(input, size, contentType, "stations/%s/%s/%s-%s".formatted(stationId, imageGroup, id, safeName));
         try {
             jdbcTemplate.update("""
                     INSERT INTO station_image (id, station_id, folder_id, name, content_type, size_bytes, bucket, object_name, created_at)
@@ -377,15 +391,15 @@ public class StationService {
 
     private record StationMutable(String id, String name, String autoName, String type, String color, String line,
                                   String mileage, double x, double y, double size, Long workshopId, String notes,
-                                  List<FolderMutable> folders) {
+                                  List<StationImageView> overviewImages, List<FolderMutable> folders) {
         StationMutable(String id, String name, String autoName, String type, String color, String line, String mileage,
                        double x, double y, double size, Long workshopId, String notes) {
-            this(id, name, autoName, type, color, line, mileage, x, y, size, workshopId, notes, new ArrayList<>());
+            this(id, name, autoName, type, color, line, mileage, x, y, size, workshopId, notes, new ArrayList<>(), new ArrayList<>());
         }
 
         StationView view() {
             return new StationView(id, name, autoName, type, color, line, mileage, new Position(x, y), size, workshopId, notes,
-                    folders.stream().sorted(Comparator.comparingInt(FolderMutable::order)).map(FolderMutable::view).toList());
+                    overviewImages, folders.stream().sorted(Comparator.comparingInt(FolderMutable::order)).map(FolderMutable::view).toList());
         }
     }
 

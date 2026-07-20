@@ -334,11 +334,14 @@ public class MapDocumentService {
                 stations.get(folder.stationId()).folders().add(folder);
             }
         });
-        jdbcTemplate.query("SELECT id, folder_id, name, content_type, size_bytes, created_at FROM station_image ORDER BY created_at", (RowCallbackHandler) rs -> {
+        jdbcTemplate.query("SELECT id, station_id, folder_id, name, content_type, size_bytes, created_at FROM station_image ORDER BY created_at", (RowCallbackHandler) rs -> {
+            StationImageView image = new StationImageView(rs.getString("id"), rs.getString("name"), rs.getString("content_type"),
+                    rs.getLong("size_bytes"), rs.getObject("created_at", LocalDateTime.class), "/api/images/" + rs.getString("id"));
             FolderMutable folder = folders.get(rs.getString("folder_id"));
             if (folder != null) {
-                folder.images().add(new StationImageView(rs.getString("id"), rs.getString("name"), rs.getString("content_type"),
-                        rs.getLong("size_bytes"), rs.getObject("created_at", LocalDateTime.class), "/api/images/" + rs.getString("id")));
+                folder.images().add(image);
+            } else if (rs.getString("folder_id") == null && stations.containsKey(rs.getString("station_id"))) {
+                stations.get(rs.getString("station_id")).overviewImages().add(image);
             }
         });
         Map<String, StationView> result = new LinkedHashMap<>();
@@ -366,15 +369,15 @@ public class MapDocumentService {
 
     private record StationMutable(String id, String name, String autoName, String type, String color, String line,
                                   String mileage, double x, double y, double size, Long workshopId, String notes,
-                                  List<FolderMutable> folders) {
+                                  List<StationImageView> overviewImages, List<FolderMutable> folders) {
         StationMutable(String id, String name, String autoName, String type, String color, String line, String mileage,
                        double x, double y, double size, Long workshopId, String notes) {
-            this(id, name, autoName, type, color, line, mileage, x, y, size, workshopId, notes, new ArrayList<>());
+            this(id, name, autoName, type, color, line, mileage, x, y, size, workshopId, notes, new ArrayList<>(), new ArrayList<>());
         }
 
         StationView view() {
             return new StationView(id, name, autoName, type, color, line, mileage, new Position(x, y), size, workshopId, notes,
-                    folders.stream().sorted(Comparator.comparingInt(FolderMutable::order)).map(FolderMutable::view).toList());
+                    overviewImages, folders.stream().sorted(Comparator.comparingInt(FolderMutable::order)).map(FolderMutable::view).toList());
         }
     }
 

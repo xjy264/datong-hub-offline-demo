@@ -176,6 +176,34 @@ class StationServiceWorkshopTest {
     }
 
     @Test
+    void uploadsAndListsStationOverviewImagesWithoutFolder() throws Exception {
+        byte[] originalBytes = new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a};
+
+        var uploaded = stations.uploadOverviewImages("station-1", new MockMultipartFile[]{
+                new MockMultipartFile("files", "overview.png", "image/png", originalBytes)
+        });
+
+        assertThat(uploaded).hasSize(1);
+        assertThat(jdbc.queryForObject("SELECT folder_id FROM station_image WHERE id = ?", String.class, uploaded.getFirst().id())).isNull();
+        assertThat(storage.lastObjectName).contains("stations/station-1/overview/");
+        assertThat(stations.listStations().getFirst().overviewImages()).extracting(StationDtos.StationImageView::name)
+                .containsExactly("overview.png");
+        assertThat(stations.listStations().getFirst().folders()).isEmpty();
+    }
+
+    @Test
+    void deletesOverviewImageMetadataAndStoredObject() throws Exception {
+        var uploaded = stations.uploadOverviewImages("station-1", new MockMultipartFile[]{
+                new MockMultipartFile("files", "overview.png", "image/png", new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a})
+        });
+
+        stations.deleteImage(uploaded.getFirst().id());
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM station_image", Integer.class)).isZero();
+        assertThat(storage.removed).containsExactly("test/" + storage.lastObjectName);
+    }
+
+    @Test
     void removesUploadedObjectWhenMetadataInsertFails() {
         StationDtos.FolderView root = stations.addFolder("station-1", new StationDtos.FolderRequest(null, "根目录"));
         jdbc.execute("DROP TABLE station_image");
@@ -268,10 +296,12 @@ class StationServiceWorkshopTest {
 
     private static class NoopImageStorage implements ImageStorage {
         private byte[] lastUploadBytes;
+        private String lastObjectName;
         private final java.util.List<String> removed = new java.util.ArrayList<>();
 
         @Override
         public StoredObject upload(InputStream input, long size, String contentType, String objectName) {
+            lastObjectName = objectName;
             try {
                 lastUploadBytes = input.readAllBytes();
             } catch (java.io.IOException ex) {

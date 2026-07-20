@@ -32,6 +32,7 @@ export interface Station {
   size: number
   workshopId: number | null
   notes: string
+  overviewImages: StationImage[]
   folders: StationFolder[]
 }
 
