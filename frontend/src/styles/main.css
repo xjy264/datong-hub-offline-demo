@@ -132,11 +132,11 @@ button { font: inherit; cursor: pointer; }
 .marker-hotspot { background: transparent; }
 .marker-hotspot { z-index: 2; }
 .marker-hotspot.interval-endpoint { width: 3px; height: 3px; inline-size: 3px; block-size: 3px; max-inline-size: 3px; max-block-size: 3px; }
-.interval-hotspot { position: absolute; z-index: 1; left: var(--interval-x); top: var(--interval-y); width: var(--interval-width); height: calc(8px * var(--map-inverse-scale)); transform: translate(-50%, -50%) rotate(var(--interval-angle)); transform-origin: center; border: 0; border-radius: 0; background: transparent; padding: 0; }
+.interval-hotspot { position: absolute; z-index: 1; left: var(--interval-x); top: var(--interval-y); width: var(--interval-width); height: 1.25px; transform: translate(-50%, -50%) rotate(var(--interval-angle)); transform-origin: center; border: 0; border-radius: 0; background: transparent; padding: 0; }
 .map-editor-layout.editing .interval-hotspot { cursor: move; }
-.interval-hotspot::before { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, #111827 0 calc(1px * var(--map-inverse-scale)), transparent calc(1px * var(--map-inverse-scale)) calc(100% - 1px * var(--map-inverse-scale)), #111827 calc(100% - 1px * var(--map-inverse-scale))), linear-gradient(to right, #dce4ea 0 25%, #111827 25% 75%, #dce4ea 75%); background-size: 100% 100%, calc(40px * var(--map-inverse-scale)) 100%; background-position: center; background-repeat: no-repeat, repeat; box-shadow: 0 0 0 calc(.5px * var(--map-inverse-scale)) rgba(17, 24, 39, .6); }
-.interval-hotspot:hover::before, .interval-hotspot.active::before { filter: brightness(1.15); box-shadow: 0 0 0 calc(.75px * var(--map-inverse-scale)) rgba(17, 24, 39, .7); }
-.interval-hotspot.selected::before { filter: brightness(1.05); box-shadow: 0 0 0 calc(1px * var(--map-inverse-scale)) #0f766e, 0 0 calc(4px * var(--map-inverse-scale)) rgba(15, 118, 110, .45); }
+.interval-hotspot::before { content: ""; position: absolute; inset: 0; background: linear-gradient(to bottom, #111827 0 .2px, transparent .2px calc(100% - .2px), #111827 calc(100% - .2px)), linear-gradient(to right, #dce4ea 0 25%, #111827 25% 75%, #dce4ea 75%); background-size: 100% 100%, 6px 100%; background-position: center; background-repeat: no-repeat, repeat; box-shadow: 0 0 0 .1px rgba(17, 24, 39, .6); }
+.interval-hotspot:hover::before, .interval-hotspot.active::before { filter: brightness(1.15); box-shadow: 0 0 0 .15px rgba(17, 24, 39, .7); }
+.interval-hotspot.selected::before { filter: brightness(1.05); box-shadow: 0 0 0 .2px #0f766e, 0 0 .5px rgba(15, 118, 110, .45); }
 .new-interval-preview { width: 34px; height: 5px; border-radius: 999px; background: #f59e0b; box-shadow: 0 0 0 1px rgba(120, 53, 15, .6); }
 .base-station-fields { width: 100%; display: grid; gap: 8px; }
 .base-station-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
