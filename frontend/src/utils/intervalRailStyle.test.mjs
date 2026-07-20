@@ -8,6 +8,8 @@ test('keeps interval rail thickness and sleepers screen-sized while map length s
 
   assert.match(view, /'--map-inverse-scale': 1 \/ scale\.value/)
   assert.match(css, /width: var\(--interval-width\); height: calc\(8px \* var\(--map-inverse-scale\)\)/)
-  assert.match(css, /calc\(20px \* var\(--map-inverse-scale\)\)/)
+  assert.match(css, /#dce4ea 0 25%, #111827 25% 75%, #dce4ea 75%/)
   assert.match(css, /calc\(40px \* var\(--map-inverse-scale\)\)/)
+  assert.match(css, /background-size: 100% 100%, calc\(40px \* var\(--map-inverse-scale\)\) 100%/)
+  assert.match(css, /background-position: center; background-repeat: no-repeat, repeat/)
 })
