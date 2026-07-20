@@ -83,8 +83,11 @@ button { font: inherit; cursor: pointer; }
 .station-row.focused { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15,118,110,.14); }
 .station-row strong { display: block; }
 .color-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--dot); margin-right: 6px; }
-.station-layout { display: grid; grid-template-columns: minmax(300px, .95fr) minmax(260px, .8fr) minmax(320px, 1fr) minmax(360px, 1.1fr); gap: 12px; align-items: start; }
+.station-layout { display: grid; grid-template-columns: minmax(300px, .9fr) minmax(230px, .65fr) minmax(430px, 1.25fr) minmax(360px, 1.05fr); gap: 12px; align-items: start; }
 .info-panel, .overview-panel, .folder-panel, .image-panel { min-width: 0; }
+.overview-panel .panel-head { display: grid; align-items: start; }
+.overview-panel .panel-title { white-space: nowrap; }
+.overview-panel .button-row { flex-wrap: nowrap; }
 .form-grid { display: grid; grid-template-columns: 70px 1fr; gap: 8px; margin-bottom: 18px; }
 .form-grid label { color: var(--muted); }
 .value { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; }
