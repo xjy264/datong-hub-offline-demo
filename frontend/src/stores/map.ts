@@ -134,14 +134,17 @@ export const useMapStore = defineStore('map', {
       if (this.currentMap) await this.loadMap(this.currentMap.id)
       else await this.load(true)
     },
-    async uploadImages(stationId: string, folderId: string, files: FileList | File[]) {
+    async uploadImages(stationId: string, folderId: string | null, files: FileList | File[]) {
       const batches = splitUploadBatches(files)
       this.uploadProgress = { completed: 0, total: batches.length }
       try {
         for (const batch of batches) {
           const form = new FormData()
           batch.forEach((file) => form.append('files', file))
-          await apiPost<StationImage[]>(`/stations/${stationId}/folders/${folderId}/images`, form, { timeout: 300000 })
+          const path = folderId == null
+            ? `/stations/${stationId}/overview-images`
+            : `/stations/${stationId}/folders/${folderId}/images`
+          await apiPost<StationImage[]>(path, form, { timeout: 300000 })
           this.uploadProgress.completed++
         }
         if (this.currentMap) await this.loadMap(this.currentMap.id)
@@ -149,6 +152,9 @@ export const useMapStore = defineStore('map', {
       } finally {
         this.uploadProgress = null
       }
+    },
+    async uploadOverviewImages(stationId: string, files: FileList | File[]) {
+      await this.uploadImages(stationId, null, files)
     },
     async deleteImage(imageId: string) {
       await apiDelete(`/images/${imageId}`)

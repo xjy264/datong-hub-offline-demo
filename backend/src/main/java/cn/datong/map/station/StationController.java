@@ -102,6 +102,12 @@ public class StationController {
         return ApiResponse.success(service.uploadImages(stationId, folderId, files));
     }
 
+    @PostMapping("/stations/{stationId}/overview-images")
+    public ApiResponse<List<StationImageView>> uploadOverviewImages(@PathVariable String stationId,
+                                                                    @RequestParam("files") MultipartFile[] files) throws Exception {
+        return ApiResponse.success(service.uploadOverviewImages(stationId, files));
+    }
+
     @DeleteMapping("/images/{imageId}")
     public ApiResponse<Void> deleteImage(@PathVariable String imageId) {
         service.deleteImage(imageId);

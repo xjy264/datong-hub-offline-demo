@@ -34,7 +34,7 @@
           </el-form-item>
           <div class="form-grid compact">
             <label>类型</label><div class="value">{{ station.color === 'blue' ? '已撤站' : '车站' }}</div>
-            <label>图片</label><div class="value">{{ countImages(station.folders) }} 张</div>
+            <label>图片</label><div class="value">{{ countStationImages(station) }} 张</div>
           </div>
           <el-form-item label="备注">
             <el-input v-model="form.notes" type="textarea" :rows="8" @change="saveProfile" />
@@ -42,8 +42,28 @@
         </el-form>
       </section>
 
-      <div class="manager-grid">
-        <section class="panel folder-panel">
+      <section class="panel overview-panel">
+        <div class="panel-head">
+          <div class="current-folder">
+            <h3 class="panel-title">车站总图</h3>
+            <div class="meta">{{ overviewImages.length }} 张 · 属于车站详细信息</div>
+          </div>
+          <div class="button-row">
+            <el-button type="primary" :disabled="!!map.uploadProgress" @click="overviewImageInput?.click()">{{ map.uploadProgress ? `上传中 ${map.uploadProgress.completed}/${map.uploadProgress.total}` : '添加图片' }}</el-button>
+            <el-button type="danger" plain :disabled="!overviewImages.length" @click="toggleDeleteOverviewMode">{{ deleteOverviewMode ? '完成删除' : '删除图片' }}</el-button>
+          </div>
+          <input ref="overviewImageInput" class="file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" @change="uploadOverviewImages" />
+        </div>
+        <div class="image-grid">
+          <div v-for="(image, index) in overviewImages" :key="image.id" class="photo">
+            <el-image class="photo-preview" :src="image.url" :alt="image.name" fit="cover" lazy @load="rememberImageSize(image.id, $event)" @click="openImagePreview(overviewImages, index)" />
+            <button v-if="deleteOverviewMode" class="photo-delete-button" title="删除图片" @click.stop="deleteImage(image.id)">×</button>
+          </div>
+          <div v-if="!overviewImages.length" class="empty">暂无车站总图</div>
+        </div>
+      </section>
+
+      <section class="panel folder-panel">
           <div class="panel-head">
             <h3 class="panel-title">目录管理</h3>
             <el-button type="primary" @click="addRootFolder">添加一级目录</el-button>
@@ -68,16 +88,16 @@
                   @focus="rememberFolderName(data.folder.id, data.folder.name)"
                   @change="renameFolder(data.folder.id, data.folder.name)"
                 />
-                <span class="folder-count">{{ countImages([data.folder]) }}图{{ data.folder.children.length ? ` · ${data.folder.children.length}级` : '' }}</span>
+                <span class="folder-count">{{ countFolderImages([data.folder]) }}图{{ data.folder.children.length ? ` · ${data.folder.children.length}级` : '' }}</span>
                 <el-button size="small" :disabled="folderDepth(data) >= 3" @click.stop="addChildFolder(data.folder.id)">下级</el-button>
                 <el-button size="small" type="danger" plain :disabled="data.folder.children.length > 0 || data.folder.images.length > 0" @click.stop="deleteFolder(data.folder.id)">删除</el-button>
               </div>
             </template>
           </el-tree>
           <div v-else class="empty">请添加目录</div>
-        </section>
+      </section>
 
-        <section class="panel image-panel">
+      <section class="panel image-panel">
           <div class="panel-head">
             <div class="current-folder">
               <h3 class="panel-title">当前目录图片</h3>
@@ -91,14 +111,13 @@
             <input ref="imageInput" class="file-input" type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" @change="uploadImages" />
           </div>
           <div class="image-grid">
-            <div v-for="image in selectedFolderImages" :key="image.id" class="photo">
-              <el-image class="photo-preview" :src="image.url" :alt="image.name" fit="cover" lazy @load="rememberImageSize(image.id, $event)" @click="openImagePreview(imageIndex(image.id))" />
+            <div v-for="(image, index) in selectedFolderImages" :key="image.id" class="photo">
+              <el-image class="photo-preview" :src="image.url" :alt="image.name" fit="cover" lazy @load="rememberImageSize(image.id, $event)" @click="openImagePreview(selectedFolderImages, index)" />
               <button v-if="deleteImageMode" class="photo-delete-button" title="删除图片" @click.stop="deleteImage(image.id)">×</button>
             </div>
             <div v-if="!selectedFolderImages.length" class="empty">{{ selectedFolder ? '暂无图片' : '请选择目录' }}</div>
           </div>
-        </section>
-      </div>
+      </section>
     </div>
   </section>
   <section v-else class="page"><div class="empty">站点不存在</div></section>
@@ -121,20 +140,24 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
-import type { StationFolder } from '../types'
+import type { StationImage } from '../types'
 import { isHandledApiError } from '../utils/actionFeedback'
 import { findNumberedFolderNode, numberedFolderTree, type NumberedFolderNode } from '../utils/folderTree'
 import { imageViewerScale } from '../utils/imageViewerScale'
+import { countFolderImages, countStationImages } from '../utils/stationImages'
 import { workshopName as resolveWorkshopName } from '../utils/workshopRoute'
 
 const route = useRoute()
 const router = useRouter()
 const map = useMapStore()
 const imageInput = ref<HTMLInputElement | null>(null)
+const overviewImageInput = ref<HTMLInputElement | null>(null)
 const selectedFolderId = ref('')
 const deleteImageMode = ref(false)
+const deleteOverviewMode = ref(false)
 const previewVisible = ref(false)
 const previewIndex = ref(0)
+const previewImages = ref<StationImage[]>([])
 const imageSizes = reactive<Record<string, { width: number; height: number }>>({})
 const previewViewport = reactive(currentViewport())
 const folderInputs = new Map<string, { focus: () => void }>()
@@ -164,8 +187,9 @@ const selectedRow = computed(() => findNumberedFolderNode(folderTree.value, sele
 const selectedFolder = computed(() => selectedRow.value?.folder || null)
 const selectedFolderPath = computed(() => selectedRow.value?.pathText || '')
 const selectedFolderImages = computed(() => selectedFolder.value?.images || [])
-const previewImageUrls = computed(() => selectedFolderImages.value.map((image) => image.url))
-const previewImage = computed(() => selectedFolderImages.value[previewIndex.value] || null)
+const overviewImages = computed(() => station.value?.overviewImages || [])
+const previewImageUrls = computed(() => previewImages.value.map((image) => image.url))
+const previewImage = computed(() => previewImages.value[previewIndex.value] || null)
 const previewScale = computed(() => imageViewerScale(previewImage.value ? imageSizes[previewImage.value.id] : null, previewViewport))
 const previewViewerKey = computed(() => `${previewIndex.value}-${previewScale.value}`)
 
@@ -176,10 +200,9 @@ watch(selectedFolderId, () => {
 watch(selectedFolderImages, (images) => {
   if (!images.length) deleteImageMode.value = false
 })
-
-function countImages(folders: StationFolder[]): number {
-  return folders.reduce((sum, folder) => sum + folder.images.length + countImages(folder.children), 0)
-}
+watch(overviewImages, (images) => {
+  if (!images.length) deleteOverviewMode.value = false
+})
 
 async function saveProfile() {
   if (!station.value) return
@@ -258,6 +281,20 @@ async function uploadImages(event: Event) {
   }
 }
 
+async function uploadOverviewImages(event: Event) {
+  const input = event.target as HTMLInputElement
+  const files = input.files
+  if (!station.value || !files?.length) return
+  try {
+    await map.uploadOverviewImages(station.value.id, files)
+    ElMessage.success('已上传车站总图')
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('20MB')) ElMessage.error(error.message)
+  } finally {
+    input.value = ''
+  }
+}
+
 async function deleteImage(imageId: string) {
   try {
     await ElMessageBox.confirm('确定删除这张图片吗？删除后不可恢复。', '删除图片', {
@@ -281,6 +318,11 @@ function toggleDeleteImageMode() {
   deleteImageMode.value = !deleteImageMode.value
 }
 
+function toggleDeleteOverviewMode() {
+  if (!overviewImages.value.length) return
+  deleteOverviewMode.value = !deleteOverviewMode.value
+}
+
 function folderDepth(data: NumberedFolderNode) {
   return data.number.split('.').length
 }
@@ -297,9 +339,10 @@ async function selectAndFocusFolder(folderId: string) {
   folderInputs.get(folderId)?.focus()
 }
 
-function openImagePreview(index: number) {
+function openImagePreview(images: StationImage[], index: number) {
   updatePreviewViewport()
-  previewIndex.value = Math.min(Math.max(0, index), Math.max(0, selectedFolderImages.value.length - 1))
+  previewImages.value = images
+  previewIndex.value = Math.min(Math.max(0, index), Math.max(0, images.length - 1))
   previewVisible.value = true
 }
 
@@ -310,6 +353,7 @@ function switchImagePreview(index: number) {
 
 function closeImagePreview() {
   previewVisible.value = false
+  previewImages.value = []
 }
 
 function rememberImageSize(imageId: string, event: Event) {
@@ -329,7 +373,4 @@ function updatePreviewViewport() {
   previewViewport.height = viewport.height
 }
 
-function imageIndex(imageId: string) {
-  return Math.max(0, selectedFolderImages.value.findIndex((image) => image.id === imageId))
-}
 </script>

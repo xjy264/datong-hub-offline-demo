@@ -25,7 +25,7 @@
       <div class="metric"><b>{{ stationList.length }}</b><span>全部点位</span></div>
       <div class="metric"><b>{{ stationList.filter((item) => item.color === 'red').length }}</b><span>车站</span></div>
       <div class="metric"><b>{{ stationList.filter((item) => item.color === 'blue').length }}</b><span>已撤站</span></div>
-      <div class="metric"><b>{{ stationList.reduce((sum, item) => sum + countImages(item.folders), 0) }}</b><span>图片</span></div>
+      <div class="metric"><b>{{ stationList.reduce((sum, item) => sum + countStationImages(item), 0) }}</b><span>图片</span></div>
     </div>
     <section class="panel">
       <div class="workshop-toolbar">
@@ -43,7 +43,7 @@
         <button v-for="station in filteredStations" :key="station.id" class="station-row" :class="{ focused: station.id === focusId }" @click="router.push(stationDetailPath(station))">
           <span>
             <strong><span class="color-dot" :style="{ '--dot': station.color === 'blue' ? '#0000ff' : '#ff0000' }"></span>{{ station.name }}</strong>
-            <span class="meta">{{ station.color === 'blue' ? '已撤站' : '车站' }} · 公里标 {{ station.mileage || '未匹配' }} · 图片 {{ countImages(station.folders) }} 张</span>
+            <span class="meta">{{ station.color === 'blue' ? '已撤站' : '车站' }} · 公里标 {{ station.mileage || '未匹配' }} · 图片 {{ countStationImages(station) }} 张</span>
           </span>
           <span class="badge">详情</span>
         </button>
@@ -58,7 +58,7 @@ import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMapStore } from '../stores/map'
-import type { StationFolder } from '../types'
+import { countStationImages } from '../utils/stationImages'
 import { stationDetailPath } from '../utils/stationRoute'
 import { resolveWorkshopRoute } from '../utils/workshopRoute'
 
@@ -92,10 +92,6 @@ onMounted(async () => {
 })
 
 watch(() => [route.params.id, map.workshops.length], redirectLegacyWorkshop)
-
-function countImages(folders: StationFolder[]): number {
-  return folders.reduce((sum, folder) => sum + folder.images.length + countImages(folder.children), 0)
-}
 
 function redirectLegacyWorkshop() {
   if (resolved.value.replacePath) router.replace({ path: resolved.value.replacePath, query: route.query })

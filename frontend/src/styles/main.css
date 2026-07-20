@@ -83,12 +83,11 @@ button { font: inherit; cursor: pointer; }
 .station-row.focused { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(15,118,110,.14); }
 .station-row strong { display: block; }
 .color-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--dot); margin-right: 6px; }
-.station-layout { display: grid; grid-template-columns: 360px 1fr; gap: 12px; align-items: start; }
-.info-panel, .folder-panel, .image-panel { min-width: 0; }
+.station-layout { display: grid; grid-template-columns: minmax(300px, .95fr) minmax(260px, .8fr) minmax(320px, 1fr) minmax(360px, 1.1fr); gap: 12px; align-items: start; }
+.info-panel, .overview-panel, .folder-panel, .image-panel { min-width: 0; }
 .form-grid { display: grid; grid-template-columns: 70px 1fr; gap: 8px; margin-bottom: 18px; }
 .form-grid label { color: var(--muted); }
 .value { background: var(--surface-soft); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; }
-.manager-grid { display: grid; grid-template-columns: minmax(360px, .9fr) minmax(420px, 1.1fr); gap: 12px; }
 .panel-title { margin: 0; font-size: 16px; }
 .folder-tree { margin-top: 12px; }
 .folder-tree .el-tree-node__content { height: auto; padding: 4px 0; }
@@ -105,8 +104,11 @@ button { font: inherit; cursor: pointer; }
 .photo-delete-button { position: absolute; right: 6px; top: 6px; width: 24px; height: 24px; border: 0; border-radius: 50%; background: rgba(180,35,24,.92); color: white; }
 .el-image-viewer__canvas { box-sizing: border-box; padding: 24px 72px 96px; }
 .empty { color: var(--muted); padding: 20px; text-align: center; border: 1px dashed var(--line); border-radius: 10px; }
+@media (max-width: 1500px) {
+  .station-layout { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 960px) {
-  .auth-page, .station-layout, .manager-grid { grid-template-columns: 1fr; }
+  .auth-page, .station-layout { grid-template-columns: 1fr; }
   .workshop-strip, .summary-grid { grid-template-columns: repeat(2, 1fr); }
 }
 .map-editor-layout { min-height: 0; height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 10px; }

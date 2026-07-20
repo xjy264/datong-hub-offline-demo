@@ -275,7 +275,7 @@
             <dl class="sidebar-info">
               <div>
                 <dt>图片数量</dt>
-                <dd>{{ countImages(selectedSidebarStation.folders) }} 张</dd>
+                <dd>{{ countStationImages(selectedSidebarStation) }} 张</dd>
               </div>
               <div>
                 <dt>备注</dt>
@@ -293,7 +293,7 @@
       <p class="hover-name">{{ hoverMarker.station.name }}</p>
       <div class="hover-meta">{{ colorLabel(hoverMarker.station.color) }} · {{ workshopName(hoverMarker.station.workshopId) }}</div>
       <div class="hover-meta">公里标：{{ hoverMarker.station.mileage || '未匹配' }}</div>
-      <div class="hover-meta">图片：{{ countImages(hoverMarker.station.folders) }} 张</div>
+      <div class="hover-meta">图片：{{ countStationImages(hoverMarker.station) }} 张</div>
       <div v-if="firstImages(hoverMarker.station).length" class="hover-photos">
         <img v-for="image in firstImages(hoverMarker.station)" :key="image.id" :src="image.url" alt="" />
       </div>
@@ -337,6 +337,7 @@ import { createMarkerDraft } from '../utils/markerDraft'
 import { intervalMarkerLabel, markerEditStationOptions, markerTypeForStation } from '../utils/markerEdit'
 import { DEFAULT_MARKER_SIZE, markerCssVars } from '../utils/markerStyle'
 import { findStationByName } from '../utils/stationMatch'
+import { countStationImages } from '../utils/stationImages'
 import { stationDetailPath } from '../utils/stationRoute'
 import { workshopName as resolveWorkshopName, workshopPath } from '../utils/workshopRoute'
 
@@ -404,7 +405,7 @@ watch(() => map.currentMap?.markers.map((marker) => `${marker.id}:${marker.stati
 
 const currentMap = computed(() => map.currentMap)
 const workshops = computed(() => map.workshops)
-const totalImages = computed(() => map.stations.reduce((sum, station) => sum + countImages(station.folders), 0))
+const totalImages = computed(() => map.stations.reduce((sum, station) => sum + countStationImages(station), 0))
 const filteredMarkers = computed(() => {
   const text = query.value.trim().toLowerCase()
   return (currentMap.value?.markers || []).filter((marker) => {
@@ -481,10 +482,6 @@ function syncSidebarForm() {
   sidebarForm.mileage = selectedSidebarStation.value.mileage || ''
   sidebarForm.workshopId = selectedSidebarStation.value.workshopId
   sidebarForm.color = stationType(selectedSidebarStation.value)
-}
-
-function countImages(folders: StationFolder[]): number {
-  return folders.reduce((sum, folder) => sum + folder.images.length + countImages(folder.children), 0)
 }
 
 function firstImages(station: Station) {

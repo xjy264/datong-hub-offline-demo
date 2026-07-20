@@ -18,7 +18,7 @@ public final class StationDtos {
 
     public record StationView(String id, String name, String autoName, String type, String color, String line,
                               String mileage, Position position, double size, Long workshopId, String notes,
-                              List<FolderView> folders) {
+                              List<StationImageView> overviewImages, List<FolderView> folders) {
     }
 
     public record WorkshopView(Long id, String code, String name, String color, int sortOrder) {
