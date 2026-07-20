@@ -1,5 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { staleChunkReloadTarget } from '../utils/staleChunkReload'
+
+const staleChunkReloadKey = 'stale-chunk-reload'
 
 const LoginView = () => import('../views/LoginView.vue')
 const RegisterView = () => import('../views/RegisterView.vue')
@@ -36,6 +39,17 @@ router.beforeEach(async (to) => {
   if (!auth.isAuthenticated && !publicAuthPage) return '/login'
   if (auth.isAuthenticated && publicAuthPage) return '/maps'
   return true
+})
+
+router.onError((error, to) => {
+  const target = staleChunkReloadTarget(error, to.fullPath, sessionStorage.getItem(staleChunkReloadKey))
+  if (!target) return
+  sessionStorage.setItem(staleChunkReloadKey, target)
+  window.location.assign(target)
+})
+
+router.afterEach((to) => {
+  if (sessionStorage.getItem(staleChunkReloadKey) === to.fullPath) sessionStorage.removeItem(staleChunkReloadKey)
 })
 
 export default router
