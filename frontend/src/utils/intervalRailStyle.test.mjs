@@ -8,5 +8,6 @@ test('keeps interval rail thickness and sleepers screen-sized while map length s
 
   assert.match(view, /'--map-inverse-scale': 1 \/ scale\.value/)
   assert.match(css, /width: var\(--interval-width\); height: calc\(8px \* var\(--map-inverse-scale\)\)/)
-  assert.match(css, /calc\(5px \* var\(--map-inverse-scale\)\)/)
+  assert.match(css, /calc\(20px \* var\(--map-inverse-scale\)\)/)
+  assert.match(css, /calc\(40px \* var\(--map-inverse-scale\)\)/)
 })
