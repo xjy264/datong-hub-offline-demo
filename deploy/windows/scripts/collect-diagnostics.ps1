@@ -1,31 +1,76 @@
 [CmdletBinding()]
-param([string]$DataRoot = 'C:\ProgramData\DatongMap')
+param(
+    [string]$DataRoot = 'C:\ProgramData\DatongMap',
+    [string]$PackageRoot = ''
+)
+
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'DatongDeploy.psm1') -Force
 $settingsPath = Join-Path $DataRoot 'config\deployment-settings.json'
-$settings = Read-DatongJson $settingsPath
-$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-$work = Join-Path $env:TEMP "DatongMap-Diagnostics-$stamp"
-$zip = Join-Path $settings.PackageRoot "DatongMap-Diagnostics-$stamp.zip"
-New-Item -ItemType Directory -Force -Path $work | Out-Null
-$secrets = @($settings.MySqlPassword, $settings.MinioAccessKey, $settings.MinioSecretKey, $settings.JwtSecret, $settings.CertificatePassword)
-$safeSettings = Protect-DatongDiagnosticText (Get-Content $settingsPath -Raw) $secrets
-$safeSettings | Set-Content (Join-Path $work 'deployment-settings-redacted.json') -Encoding UTF8
-Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsBuildNumber, OsArchitecture, CsTotalPhysicalMemory | Format-List | Out-File (Join-Path $work 'computer.txt') -Encoding UTF8
-Get-Service $settings.MySqlServiceName, 'DatongMapMinIO', 'DatongMapBackend' -ErrorAction SilentlyContinue | Format-List * | Out-File (Join-Path $work 'services.txt') -Encoding UTF8
-Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in @(8012,9011,9012,[int]$settings.MySqlPort) } | Format-Table -AutoSize | Out-File (Join-Path $work 'ports.txt') -Encoding UTF8
-$reports = Join-Path $settings.PackageRoot 'reports'
-if (Test-Path $reports) { Copy-Item $reports (Join-Path $work 'reports') -Recurse }
-$logs = Join-Path $DataRoot 'logs'
-if (Test-Path $logs) {
-    Get-ChildItem $logs -Recurse -File | ForEach-Object {
-        $relative = $_.FullName.Substring($logs.Length).TrimStart('\')
-        $target = Join-Path (Join-Path $work 'logs') $relative
-        New-Item -ItemType Directory -Force -Path (Split-Path $target -Parent) | Out-Null
-        $safeLog = Protect-DatongDiagnosticText ((Get-Content $_.FullName -Tail 500 -ErrorAction SilentlyContinue) -join "`r`n") $secrets
-        $safeLog | Set-Content $target -Encoding UTF8
-    }
+$settings = if (Test-Path $settingsPath) { Read-DatongJson $settingsPath } else { $null }
+if ([string]::IsNullOrWhiteSpace($PackageRoot)) {
+    $PackageRoot = if ($settings) { $settings.PackageRoot } else { Resolve-DatongPackageRoot $PSScriptRoot }
 }
-Compress-Archive -Path (Join-Path $work '*') -DestinationPath $zip -Force
-Remove-Item $work -Recurse -Force
+
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$work = Join-Path ([IO.Path]::GetTempPath()) "DatongMap-Diagnostics-$stamp-$([guid]::NewGuid().ToString('N'))"
+$zip = Join-Path $PackageRoot "DatongMap-Diagnostics-$stamp.zip"
+New-Item -ItemType Directory -Force -Path $work | Out-Null
+$secrets = if ($settings) { @($settings.MySqlPassword, $settings.MinioAccessKey, $settings.MinioSecretKey, $settings.JwtSecret, $settings.CertificatePassword) } else { @() }
+
+function Write-SafeText([string]$Target, [string]$Text) {
+    $directory = Split-Path $Target -Parent
+    if ($directory) { New-Item -ItemType Directory -Force -Path $directory | Out-Null }
+    Protect-DatongDiagnosticText $Text $secrets | Set-Content $Target -Encoding UTF8
+}
+
+try {
+    if ($settings) {
+        Write-SafeText (Join-Path $work 'deployment-settings-redacted.json') (Get-Content $settingsPath -Raw -Encoding UTF8)
+    } else {
+        Write-SafeText (Join-Path $work 'deployment-settings-redacted.json') '{"status":"配置阶段尚未完成"}'
+    }
+
+    if (Get-Command Get-ComputerInfo -ErrorAction SilentlyContinue) {
+        Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsBuildNumber, OsArchitecture, CsTotalPhysicalMemory | Format-List | Out-File (Join-Path $work 'computer.txt') -Encoding UTF8
+    } else {
+        Write-SafeText (Join-Path $work 'computer.txt') ([Environment]::OSVersion.VersionString)
+    }
+
+    $mysqlService = if ($settings) { [string]$settings.MySqlServiceName } else { 'DatongMapMySQL' }
+    if (Get-Command Get-Service -ErrorAction SilentlyContinue) {
+        Get-Service $mysqlService, 'DatongMapMinIO', 'DatongMapBackend' -ErrorAction SilentlyContinue | Format-List * | Out-File (Join-Path $work 'services.txt') -Encoding UTF8
+    } else {
+        Write-SafeText (Join-Path $work 'services.txt') '当前系统不支持Windows服务查询。'
+    }
+
+    $mysqlPort = if ($settings) { [int]$settings.MySqlPort } else { 0 }
+    if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+        $ports = @(8012, 9011, 9012, 3306, 3311)
+        if ($mysqlPort -gt 0) { $ports += $mysqlPort }
+        Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.LocalPort -in $ports } | Format-Table -AutoSize | Out-File (Join-Path $work 'ports.txt') -Encoding UTF8
+    } else {
+        Write-SafeText (Join-Path $work 'ports.txt') '当前系统不支持Windows端口查询。'
+    }
+
+    $reports = Join-Path $PackageRoot 'reports'
+    if (Test-Path $reports) {
+        Get-ChildItem $reports -File | ForEach-Object {
+            Write-SafeText (Join-Path (Join-Path $work 'reports') $_.Name) (Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue)
+        }
+    }
+
+    $logs = Join-Path $DataRoot 'logs'
+    if (Test-Path $logs) {
+        Get-ChildItem $logs -Recurse -File | ForEach-Object {
+            $relative = $_.FullName.Substring($logs.Length).TrimStart('\')
+            $target = Join-Path (Join-Path $work 'logs') $relative
+            Write-SafeText $target ((Get-Content $_.FullName -Tail 500 -ErrorAction SilentlyContinue) -join "`r`n")
+        }
+    }
+
+    Compress-Archive -Path (Join-Path $work '*') -DestinationPath $zip -Force
+} finally {
+    Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+}
 Write-Host "诊断包已生成：$zip" -ForegroundColor Green

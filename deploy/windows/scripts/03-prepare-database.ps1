@@ -7,7 +7,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'DatongDeploy.psm1') -Force
+$packageRoot = Resolve-DatongPackageRoot $PSScriptRoot
+$startedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
 Write-DatongStage '阶段03：准备MySQL数据库'
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 3 -StageName '安装项目独立MySQL' -Component 'CONFIG' -Status 'RUNNING' -StartedAt $startedAt)
 if (-not (Test-DatongAdministrator)) { throw '请使用管理员PowerShell运行本阶段。' }
 $settingsPath = Join-Path $DataRoot 'config\deployment-settings.json'
 $settings = Read-DatongJson $settingsPath
@@ -18,6 +21,7 @@ if (-not (Test-Path $mysql) -or -not (Test-Path $mysqldump)) { throw '完整离�
 $adminPasswordPlain = ''
 
 if ($settings.MySqlMode -eq 'Bundled') {
+    Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 3 -StageName '安装项目独立MySQL' -Component 'VC-RUNTIME' -Status 'RUNNING' -StartedAt $startedAt)
     $mysqlRoot = Join-Path $packageRoot 'runtime\mysql'
     $mysqld = Join-Path $mysqlRoot 'bin\mysqld.exe'
     if (-not (Test-Path $mysqld) -or -not (Test-Path $mysql)) {
@@ -27,6 +31,7 @@ if ($settings.MySqlMode -eq 'Bundled') {
     if (-not (Test-Path $vcRuntime)) { throw '完整离线包缺少Microsoft Visual C++运行库安装程序。' }
     $vcProcess = Start-Process -FilePath $vcRuntime -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
     if ($vcProcess.ExitCode -notin @(0, 1638, 3010)) { throw "Microsoft Visual C++运行库安装失败，退出代码：$($vcProcess.ExitCode)" }
+    Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 3 -StageName '安装项目独立MySQL' -Component 'MYSQL-INIT' -Status 'RUNNING' -StartedAt $startedAt)
     $mysqlData = Join-Path $DataRoot 'mysql\data'
     $mysqlConfig = Join-Path $DataRoot 'mysql\my.ini'
     New-Item -ItemType Directory -Force -Path (Split-Path $mysqlConfig -Parent) | Out-Null
@@ -47,6 +52,7 @@ default-character-set=utf8mb4
         & $mysqld "--defaults-file=$mysqlConfig" --initialize-insecure
         if ($LASTEXITCODE -ne 0) { throw '项目独立MySQL初始化失败。' }
     }
+    Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 3 -StageName '安装项目独立MySQL' -Component 'MYSQL-SERVICE' -Status 'RUNNING' -StartedAt $startedAt)
     if (-not (Get-Service $settings.MySqlServiceName -ErrorAction SilentlyContinue)) {
         & $mysqld "--defaults-file=$mysqlConfig" --install $settings.MySqlServiceName
         if ($LASTEXITCODE -ne 0) { throw '项目独立MySQL服务注册失败。' }
@@ -70,6 +76,7 @@ default-character-set=utf8mb4
     if ($LASTEXITCODE -ne 0) { $env:MYSQL_PWD = $null; throw '现有MySQL连接验证失败，请把错误截图和环境报告交给远程技术人员。' }
 }
 
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 3 -StageName '安装项目独立MySQL' -Component 'DATABASE' -Status 'RUNNING' -StartedAt $startedAt)
 $databaseExistsRaw = & $mysql --protocol=tcp --host=127.0.0.1 "--port=$($settings.MySqlPort)" "--user=$AdministratorUser" --batch --skip-column-names -e "SELECT COUNT(*) FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME='$($settings.MySqlDatabase)'"
 if ($LASTEXITCODE -ne 0) { $env:MYSQL_PWD = $null; throw '数据库状态检查失败。' }
 $databaseExists = ([int](($databaseExistsRaw | Select-Object -Last 1).ToString().Trim())) -gt 0
@@ -84,6 +91,7 @@ if ($decision.Action -eq 'Stop') {
     throw "$($decision.Reason) 已保留原数据库，请将环境报告交给远程技术人员。"
 }
 if ($decision.Action -eq 'Upgrade') {
+    Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 3 -StageName '安装项目独立MySQL' -Component 'BACKUP' -Status 'RUNNING' -StartedAt $startedAt)
     $preUpgrade = Join-Path $settings.BackupRoot ('pre-upgrade-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
     New-Item -ItemType Directory -Force -Path $preUpgrade | Out-Null
     & $mysqldump --protocol=tcp --host=127.0.0.1 "--port=$($settings.MySqlPort)" "--user=$AdministratorUser" --single-transaction --no-tablespaces $settings.MySqlDatabase | Set-Content (Join-Path $preUpgrade 'mysql.sql') -Encoding UTF8

@@ -149,10 +149,6 @@ jobs:
   windows-install-smoke:
     if: github.event_name == 'workflow_dispatch' && inputs.windows_install_smoke
     needs: windows-offline-package
-    strategy:
-      fail-fast: false
-      matrix:
-        mysql-mode: [bundled, reuse]
     runs-on: windows-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -162,48 +158,14 @@ jobs:
       - name: Extract package
         shell: powershell
         run: Expand-Archive C:\DatongSmoke\datong-map-windows-offline.zip C:\DatongSmoke\package
-      - name: Prepare reusable MySQL service
-        if: matrix.mysql-mode == 'reuse'
+      - name: Run one-click bundled MySQL deployment smoke
         shell: powershell
         run: |
-          $app = 'C:\DatongSmoke\package\datong-map-windows'
-          $mysql = Join-Path $app 'runtime\mysql'
-          $data = 'C:\DatongSmoke\existing-mysql\data'
-          $ini = 'C:\DatongSmoke\existing-mysql\my.ini'
-          New-Item -ItemType Directory -Force -Path (Split-Path $ini) | Out-Null
-          @"
-          [mysqld]
-          basedir=$($mysql.Replace('\','/'))
-          datadir=$($data.Replace('\','/'))
-          port=3307
-          bind-address=127.0.0.1
-          "@ | Set-Content $ini -Encoding ASCII
-          & "$mysql\bin\mysqld.exe" "--defaults-file=$ini" --initialize-insecure
-          & "$mysql\bin\mysqld.exe" "--defaults-file=$ini" --install ExistingMySQL80
-          Start-Service ExistingMySQL80
-      - name: Run staged deployment smoke
-        shell: powershell
-        run: |
-          $app = 'C:\DatongSmoke\package\datong-map-windows'
-          $data = "C:\DatongSmoke\data-${{ matrix.mysql-mode }}"
-          $backup = "C:\DatongSmoke\backup-${{ matrix.mysql-mode }}"
-          & "$app\scripts\01-check-environment.ps1"
-          if ('${{ matrix.mysql-mode }}' -eq 'bundled') {
-            & "$app\scripts\02-configure.ps1" -DataRoot $data -BackupRoot $backup -UseBundledMySql -NonInteractive
-            & "$app\scripts\03-prepare-database.ps1" -DataRoot $data
-          } else {
-            & "$app\scripts\02-configure.ps1" -DataRoot $data -BackupRoot $backup -AcceptRecommended -NonInteractive
-            $empty = New-Object Security.SecureString
-            & "$app\scripts\03-prepare-database.ps1" -DataRoot $data -AdministratorPassword $empty
-          }
-          & "$app\scripts\04-install-services.ps1" -DataRoot $data
-          & "$app\scripts\05-verify.ps1" -DataRoot $data
+          $app = 'C:\DatongSmoke\package'
+          $data = 'C:\DatongSmoke\data-bundled'
+          $backup = 'C:\DatongSmoke\backup-bundled'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$app\scripts\install.ps1" -DataRoot $data -PackageRoot $app
+          if ($LASTEXITCODE -ne 0) { throw "一键部署失败，退出代码：$LASTEXITCODE" }
           & "$app\scripts\backup.ps1" -DataRoot $data -BackupRoot $backup
-          & "$app\scripts\collect-diagnostics.ps1" -DataRoot $data
+          & "$app\scripts\collect-diagnostics.ps1" -DataRoot $data -PackageRoot $app
           & "$app\scripts\uninstall.ps1" -DataRoot $data -RemoveData
-      - name: Remove reusable MySQL service
-        if: always() && matrix.mysql-mode == 'reuse'
-        shell: powershell
-        run: |
-          Stop-Service ExistingMySQL80 -Force -ErrorAction SilentlyContinue
-          & 'C:\DatongSmoke\package\datong-map-windows\runtime\mysql\bin\mysqld.exe' --remove ExistingMySQL80

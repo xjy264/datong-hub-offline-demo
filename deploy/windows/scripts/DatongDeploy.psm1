@@ -96,6 +96,23 @@ function Select-DatongMySqlPlan($Candidates, [bool]$Port3306InUse) {
     return [pscustomobject]@{ Action = 'Bundled'; Port = $(if ($Port3306InUse) { 3311 } else { 3306 }); Candidate = $null }
 }
 
+function Get-DatongBundledMySqlPort([bool]$Port3306InUse, [int]$ExistingProjectPort = 0) {
+    if ($ExistingProjectPort -gt 0) { return $ExistingProjectPort }
+    return $(if ($Port3306InUse) { 3311 } else { 3306 })
+}
+
+function Get-DatongReusableProjectSettings($ExistingSettings, [string]$PackageRoot) {
+    if ($null -eq $ExistingSettings) { return $null }
+    $ownedProperty = $ExistingSettings.PSObject.Properties['OwnsMySqlService']
+    if ($null -eq $ownedProperty -or -not [bool]$ownedProperty.Value) { return $null }
+    $copy = $ExistingSettings.PSObject.Copy()
+    if ($copy.PSObject.Properties['PackageRoot']) { $copy.PackageRoot = $PackageRoot }
+    else { $copy | Add-Member -NotePropertyName PackageRoot -NotePropertyValue $PackageRoot }
+    if ($copy.PSObject.Properties['UpdatedAt']) { $copy.UpdatedAt = (Get-Date).ToString('o') }
+    else { $copy | Add-Member -NotePropertyName UpdatedAt -NotePropertyValue (Get-Date).ToString('o') }
+    return $copy
+}
+
 function New-DatongSecret([int]$Bytes = 32) {
     $buffer = New-Object byte[] $Bytes
     $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
@@ -126,7 +143,40 @@ function Protect-DatongDiagnosticText([string]$Text, [string[]]$Secrets = @()) {
             $result = $result -replace [regex]::Escape($secret), '[REDACTED]'
         }
     }
-    return ($result -replace '(?im)^(\s*(?:MYSQL_PASSWORD|MINIO_SECRET_KEY|JWT_SECRET|WINDOWS_TLS_KEYSTORE_PASSWORD)\s*[=:]\s*).+$', '$1[REDACTED]')
+    $result = $result -replace '(?im)^(\s*(?:MYSQL_PASSWORD|MINIO_SECRET_KEY|JWT_SECRET|WINDOWS_TLS_KEYSTORE_PASSWORD)\s*[=:]\s*).+$', '$1[REDACTED]'
+    return ($result -replace '(?i)("(?:MySqlPassword|MinioAccessKey|MinioSecretKey|JwtSecret|CertificatePassword)"\s*:\s*")[^"]*(")', '$1[REDACTED]$2')
+}
+
+function New-DatongDeploymentState {
+    param(
+        [int]$Stage,
+        [string]$StageName,
+        [string]$Component,
+        [ValidateSet('RUNNING','PASS','STOP')][string]$Status,
+        [string]$StartedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss'),
+        [string]$Message = '',
+        [string]$NextAction = '',
+        [string]$DiagnosticPath = '',
+        [object[]]$Stages = @()
+    )
+    $componentCode = (($Component.ToUpperInvariant() -replace '[^A-Z0-9]+','-').Trim('-'))
+    if ([string]::IsNullOrWhiteSpace($componentCode)) { $componentCode = 'UNKNOWN' }
+    $errorCode = if ($componentCode -eq 'UNKNOWN') { 'WIN-99-UNKNOWN' } else { 'WIN-{0:D2}-{1}' -f $Stage, $componentCode }
+    return [pscustomobject][ordered]@{
+        Result = $Status
+        Stage = $Stage
+        StageName = $StageName
+        Component = $Component
+        ErrorCode = $errorCode
+        Message = $Message
+        StartedAt = $StartedAt
+        UpdatedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+        NextAction = $NextAction
+        DiagnosticPath = $DiagnosticPath
+        Stages = @($Stages)
+        Warnings = @()
+        Blockers = $(if ($Status -eq 'STOP' -and $Message) { @($Message) } else { @() })
+    }
 }
 
 function Save-DatongJson([string]$Path, $Value) {
@@ -153,14 +203,45 @@ function Write-DatongReport([string]$JsonPath, [string]$HtmlPath, [string]$Title
     $blockers = @($blockerValues | ForEach-Object { '<li>' + [Net.WebUtility]::HtmlEncode([string]$_) + '</li>' }) -join ''
     if (-not $warnings) { $warnings = '<li>无黄色提醒</li>' }
     if (-not $blockers) { $blockers = '<li>无红色停止项</li>' }
+    $failureDetails = ''
+    if ($result -eq 'STOP' -and $Value.PSObject.Properties.Name -contains 'Stage') {
+        $stage = [Net.WebUtility]::HtmlEncode([string]$Value.Stage)
+        $stageName = [Net.WebUtility]::HtmlEncode([string]$Value.StageName)
+        $component = [Net.WebUtility]::HtmlEncode([string]$Value.Component)
+        $errorCode = [Net.WebUtility]::HtmlEncode([string]$Value.ErrorCode)
+        $message = [Net.WebUtility]::HtmlEncode([string]$Value.Message)
+        $diagnosticPath = [Net.WebUtility]::HtmlEncode([string]$Value.DiagnosticPath)
+        $feedbackText = [Net.WebUtility]::HtmlEncode("错误编号：$($Value.ErrorCode)`n失败阶段：第 $($Value.Stage) 阶段 $($Value.StageName)`n失败组件：$($Value.Component)`n原因：$($Value.Message)`n诊断包：$($Value.DiagnosticPath)")
+        $failureDetails = @"
+<section class="card stop"><h2>部署失败位置</h2>
+<p><strong>失败阶段：第 $stage 阶段 $stageName</strong></p>
+<p><strong>失败组件：$component</strong></p>
+<p><strong>错误编号：$errorCode</strong></p>
+<p><strong>原因：</strong>$message</p>
+<p><strong>诊断包：</strong><code>$diagnosticPath</code></p>
+<textarea id="feedback" readonly>$feedbackText</textarea><button type="button" onclick="copyFeedback()">复制反馈信息</button><span id="copy-result"></span>
+</section>
+"@
+    }
     $html = @"
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>$Title</title>
-<style>body{font-family:Segoe UI,Microsoft YaHei,sans-serif;margin:32px;color:#1f2937;background:#f8fafc}h1{color:#075985}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.card{background:white;border-radius:10px;padding:16px;border:1px solid #cbd5e1}.pass{border-left:8px solid #16a34a}.warn{border-left:8px solid #eab308}.stop{border-left:8px solid #dc2626}pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;padding:18px;border-radius:8px}.hint{padding:12px;background:#ecfeff;border-left:4px solid #0891b2}</style></head>
+<style>body{font-family:Segoe UI,Microsoft YaHei,sans-serif;margin:32px;color:#1f2937;background:#f8fafc}h1{color:#075985}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.card{background:white;border-radius:10px;padding:16px;border:1px solid #cbd5e1;margin:16px 0}.pass{border-left:8px solid #16a34a}.warn{border-left:8px solid #eab308}.stop{border-left:8px solid #dc2626}pre{white-space:pre-wrap;background:#0f172a;color:#e2e8f0;padding:18px;border-radius:8px}.hint{padding:12px;background:#ecfeff;border-left:4px solid #0891b2}textarea{box-sizing:border-box;width:100%;min-height:130px;padding:12px}button{margin-top:10px;padding:10px 20px;border:0;border-radius:6px;background:#075985;color:white;font-size:16px;cursor:pointer}code{word-break:break-all}</style></head>
 <body><h1>$Title</h1><div class="card $resultClass"><h2>检测结论：$result</h2><p>PASS可继续；黄色项目按提示确认；STOP时请停止并发送本报告。</p></div>
+$failureDetails
 <div class="grid"><section class="card warn"><h2>黄色提醒</h2><ul>$warnings</ul></section><section class="card stop"><h2>红色停止项</h2><ul>$blockers</ul></section></div>
-<p class="hint"><strong>下一步：</strong>$nextAction</p><details><summary>技术详情</summary><pre>$encoded</pre></details></body></html>
+<p class="hint"><strong>下一步：</strong>$nextAction</p><details><summary>技术详情</summary><pre>$encoded</pre></details>
+<script>function copyFeedback(){var e=document.getElementById('feedback');e.focus();e.select();try{document.execCommand('copy');document.getElementById('copy-result').textContent=' 已复制';}catch(x){document.getElementById('copy-result').textContent=' 请手动复制上方内容';}}</script></body></html>
 "@
     $html | Set-Content -Path $HtmlPath -Encoding UTF8
+}
+
+function Write-DatongDeploymentProgress {
+    param([string]$PackageRoot, $State)
+    $reports = Join-Path $PackageRoot 'reports'
+    New-Item -ItemType Directory -Force -Path $reports | Out-Null
+    Write-DatongReport (Join-Path $reports 'deployment-status.json') (Join-Path $reports 'deployment-status.html') '大同示意图 Windows 一键部署状态' $State
+    $color = switch ($State.Result) { 'PASS' { 'Green' } 'STOP' { 'Red' } default { 'Cyan' } }
+    Write-Host ("[{0}/5] {1} / {2} - {3}" -f $State.Stage, $State.StageName, $State.Component, $State.Result) -ForegroundColor $color
 }
 
 function Set-DatongPrivateAcl([string]$Path) {
@@ -172,4 +253,4 @@ function Resolve-DatongPackageRoot([string]$ScriptRoot) {
     return (Resolve-Path (Join-Path $ScriptRoot '..')).Path
 }
 
-Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, Save-DatongJson, Read-DatongJson, Write-DatongReport, Set-DatongPrivateAcl, Resolve-DatongPackageRoot
+Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, Get-DatongBundledMySqlPort, Get-DatongReusableProjectSettings, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, New-DatongDeploymentState, Save-DatongJson, Read-DatongJson, Write-DatongReport, Write-DatongDeploymentProgress, Set-DatongPrivateAcl, Resolve-DatongPackageRoot

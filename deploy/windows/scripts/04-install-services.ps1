@@ -7,6 +7,8 @@ Write-DatongStage '阶段04：安装项目Windows服务'
 if (-not (Test-DatongAdministrator)) { throw '请使用管理员PowerShell运行本阶段。' }
 $settings = Read-DatongJson (Join-Path $DataRoot 'config\deployment-settings.json')
 $packageRoot = $settings.PackageRoot
+$startedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 4 -StageName '安装MinIO与后端服务' -Component 'PACKAGE-FILES' -Status 'RUNNING' -StartedAt $startedAt)
 $properties = Join-Path $DataRoot 'config\application-windows.properties'
 $winsw = Join-Path $packageRoot 'runtime\winsw\WinSW-x64.exe'
 $minio = Join-Path $packageRoot 'runtime\minio\minio.exe'
@@ -52,6 +54,7 @@ $minioXml = Render (Join-Path $packageRoot 'service\minio.xml.template') @{
     LOG_PATH = Xml $minioLogs
 }
 $minioXml | Set-Content (Join-Path $serviceDir 'DatongMapMinIO.xml') -Encoding UTF8
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 4 -StageName '安装MinIO与后端服务' -Component 'MINIO-SERVICE' -Status 'RUNNING' -StartedAt $startedAt)
 Install-WrappedService 'DatongMapMinIO' $minioServiceExe $minioXml
 Start-Service 'DatongMapMinIO'
 
@@ -64,8 +67,10 @@ $backendXml = Render (Join-Path $packageRoot 'service\backend.xml.template') @{
     LOG_PATH = Xml $backendLogs
 }
 $backendXml | Set-Content (Join-Path $serviceDir 'DatongMapBackend.xml') -Encoding UTF8
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 4 -StageName '安装MinIO与后端服务' -Component 'BACKEND-SERVICE' -Status 'RUNNING' -StartedAt $startedAt)
 Install-WrappedService 'DatongMapBackend' $backendServiceExe $backendXml
 
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 4 -StageName '安装MinIO与后端服务' -Component 'MINIO-BUCKET' -Status 'RUNNING' -StartedAt $startedAt)
 $deadline = (Get-Date).AddSeconds(60)
 do { Start-Sleep -Seconds 2; $minioReady = $null -ne (Get-DatongPortOwner 9011) } while (-not $minioReady -and (Get-Date) -lt $deadline)
 if (-not $minioReady) { throw "MinIO启动超时，请查看 $minioLogs" }
@@ -77,12 +82,14 @@ try {
 } finally { Remove-Item $mcConfig -Recurse -Force -ErrorAction SilentlyContinue }
 Start-Service 'DatongMapBackend'
 
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 4 -StageName '安装MinIO与后端服务' -Component 'FIREWALL' -Status 'RUNNING' -StartedAt $startedAt)
 $ruleName = 'DatongMap-HTTPS-8012'
 Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort $settings.ServerPort -Profile Domain,Private | Out-Null
 $clientDir = Join-Path $packageRoot 'client'
 New-Item -ItemType Directory -Force -Path $clientDir | Out-Null
 Copy-Item $settings.ClientCertificatePath (Join-Path $clientDir 'datong-map.cer') -Force
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 4 -StageName '安装MinIO与后端服务' -Component 'BACKUP-TASK' -Status 'RUNNING' -StartedAt $startedAt)
 $backupTaskCommand = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $packageRoot 'scripts\backup.ps1') + '" -DataRoot "' + $DataRoot + '" -BackupRoot "' + $settings.BackupRoot + '"'
 & schtasks.exe /Create /TN 'DatongMap-DailyBackup' /SC DAILY /ST 02:00 /RU SYSTEM /TR $backupTaskCommand /F | Out-Null
 if ($LASTEXITCODE -ne 0) { throw '每日备份计划任务创建失败。' }

@@ -2,7 +2,7 @@
 
 ## 一、部署前准备
 
-使用文件 `datong-map-windows-offline.zip`。服务器要求Windows Server 2019/2022 x64、至少4GB内存、建议8GB以上、系统盘至少20GB可用空间。准备已有MySQL的管理员账号和密码；该账号需要建库及创建账号权限。
+使用文件 `datong-map-windows-offline.zip`。服务器要求Windows Server 2019/2022 x64、至少4GB内存、建议8GB以上、系统盘至少20GB可用空间。部署包会安装项目独立MySQL，服务器原有MySQL保持原状。
 
 将ZIP复制到服务器后校验随包SHA-256清单，再解压到：
 
@@ -17,27 +17,27 @@ C:\DatongMap
 1. 打开 `C:\DatongMap`。
 2. 双击 `开始部署.cmd`。
 3. Windows弹出权限确认时选择“是”。
-4. 向导依次执行五个阶段，每阶段成功后输入 `Y` 继续。
+4. 向导自动执行五个阶段，现场人员无需输入数据库账号、密码或阶段确认。
 
 ### 阶段01：只读环境检测
 
 本阶段只读取系统、磁盘、端口和服务信息，生成 `C:\DatongMap\reports\environment-report.html`。
 
-- 绿色PASS：继续。
-- 黄色提醒：看清提示后继续。
-- 红色STOP：停止操作，把整个 `reports` 目录发送给远程技术人员。
+- 绿色PASS：自动进入下一阶段。
+- 黄色提醒：部署结束后查看报告。
+- 红色STOP：停止操作，发送页面标出的诊断ZIP。
 
 ### 阶段02：确认配置
 
-- 检测到一个运行中的MySQL 8.x时，按Enter复用。
-- 检测到多个MySQL 8.x时，根据表格编号选择。
-- 检测到旧MySQL、MariaDB或无兼容服务时，输入 `0` 使用项目独立MySQL。
-- 备份目录优先选择非系统盘；直接按Enter采用向导推荐目录。
+- 固定使用项目独立MySQL服务 `DatongMapMySQL`。
+- `3306` 空闲时使用 `3306`；被其他程序占用时自动使用 `3311`。
+- 已有DatongMap安装会保留原项目数据库和端口，并在升级前自动备份。
+- 备份目录优先选择空间最大的非系统盘，没有其他磁盘时使用项目数据目录。
 - 向导自动生成包含服务器名称和局域网IP的HTTPS证书。
 
 ### 阶段03：准备数据库
 
-复用已有MySQL时，输入管理员账号密码。密码输入期间屏幕不显示字符，这是正常现象。凭据仅用于本次连接，项目保存的是自动生成的低权限业务账号。
+向导安装并启动项目独立MySQL，创建独立数据库和随机业务账号。账号密码自动生成并仅保存在管理员和SYSTEM可读的配置目录。
 
 如果同名数据库存在：空库继续初始化；检测到项目Flyway记录时先备份再升级；出现其他数据表时向导停止并保护原数据库。
 
@@ -102,7 +102,7 @@ C:\DatongMap\scripts\collect-diagnostics.ps1
 C:\DatongMap\scripts\uninstall.ps1
 ```
 
-复用的甲方MySQL服务保持原状。彻底清理项目数据需要明确执行：
+服务器原有MySQL服务保持原状。彻底清理项目数据需要明确执行：
 
 ```powershell
 C:\DatongMap\scripts\uninstall.ps1 -RemoveData

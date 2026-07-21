@@ -14,11 +14,30 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'DatongDeploy.psm1') -Force
 $packageRoot = Resolve-DatongPackageRoot $PSScriptRoot
 $reportPath = Join-Path $packageRoot 'reports\environment-report.json'
+$startedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
 
 Write-DatongStage '阶段02：确认部署配置'
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 2 -StageName '自动生成配置与证书' -Component 'DIRECTORY' -Status 'RUNNING' -StartedAt $startedAt)
 if (-not (Test-DatongAdministrator)) { throw '请使用管理员PowerShell运行本阶段。' }
 $report = Read-DatongJson $reportPath
 if ($report.Result -ne 'PASS') { throw '环境报告存在红色停止项，请先把报告交给远程技术人员。' }
+
+$configDir = Join-Path $DataRoot 'config'
+$logsDir = Join-Path $DataRoot 'logs'
+$certDir = Join-Path $DataRoot 'certificate'
+New-Item -ItemType Directory -Force -Path $configDir, $logsDir, $certDir | Out-Null
+$settingsPath = Join-Path $configDir 'deployment-settings.json'
+if ($UseBundledMySql -and (Test-Path $settingsPath)) {
+    Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 2 -StageName '自动生成配置与证书' -Component 'EXISTING-CONFIG' -Status 'RUNNING' -StartedAt $startedAt)
+    $existingSettings = Get-DatongReusableProjectSettings (Read-DatongJson $settingsPath) $packageRoot
+    if ($existingSettings -and (Test-Path $existingSettings.CertificatePath)) {
+        Save-DatongJson $settingsPath $existingSettings
+        Set-DatongPrivateAcl $configDir
+        Set-Content (Join-Path $configDir 'stage-02.complete') (Get-Date).ToString('o') -Encoding ASCII
+        Write-Host "检测到已有DatongMap独立数据库配置，将保留数据并执行升级：$settingsPath" -ForegroundColor Green
+        return
+    }
+}
 
 $compatible = @($report.MySqlCandidates | Where-Object { $_.Compatible })
 $mode = 'Bundled'
@@ -46,18 +65,12 @@ if ($UseBundledMySql) {
     }
 }
 
-$mysqlPort = if ($mode -eq 'Reuse') { [int]$selected.Port } else {
-    if (Get-DatongPortOwner 3306) { 3311 } else { 3306 }
-}
+$mysqlPort = if ($mode -eq 'Reuse') { [int]$selected.Port } else { Get-DatongBundledMySqlPort ($null -ne (Get-DatongPortOwner 3306)) 0 }
 $fixedDrives = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Where-Object { $_.DeviceID -ne $env:SystemDrive } | Sort-Object FreeSpace -Descending)
 $defaultBackupRoot = if ($fixedDrives.Count -gt 0) { "$($fixedDrives[0].DeviceID)\DatongMapBackups" } else { Join-Path $DataRoot 'backups' }
 $backupInput = if ($BackupRoot) { $BackupRoot } elseif ($NonInteractive) { $defaultBackupRoot } else { Read-Host "请输入备份目录，按Enter使用 $defaultBackupRoot" }
 $backupRoot = if ([string]::IsNullOrWhiteSpace($backupInput)) { $defaultBackupRoot } else { $backupInput }
-$configDir = Join-Path $DataRoot 'config'
-$logsDir = Join-Path $DataRoot 'logs'
-$certDir = Join-Path $DataRoot 'certificate'
-New-Item -ItemType Directory -Force -Path $configDir, $logsDir, $certDir | Out-Null
-
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 2 -StageName '自动生成配置与证书' -Component 'CERTIFICATE' -Status 'RUNNING' -StartedAt $startedAt)
 $certPassword = New-DatongSecret 24
 $serverPfx = Join-Path $certDir 'datong-map.pfx'
 $clientCer = Join-Path $certDir 'datong-map.cer'
@@ -99,7 +112,7 @@ $settings = [ordered]@{
     BackupRoot = $backupRoot
     CreatedAt = (Get-Date).ToString('o')
 }
-$settingsPath = Join-Path $configDir 'deployment-settings.json'
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 2 -StageName '自动生成配置与证书' -Component 'CONFIG' -Status 'RUNNING' -StartedAt $startedAt)
 Save-DatongJson $settingsPath $settings
 Set-DatongPrivateAcl $configDir
 Set-Content (Join-Path $configDir 'stage-02.complete') (Get-Date).ToString('o') -Encoding ASCII
