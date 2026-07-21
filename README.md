@@ -33,7 +33,7 @@ cd frontend && npm install && npm run dev
 - MySQL 只保存站点、目录、图片元数据。
 - 图片文件保存到 MinIO bucket，默认 `datong-map`。
 - 顶部“导入旧数据”支持原离线版导出的 JSON，会把 `dataUrl` 图片转存到 MinIO。
-- 图片仅支持 JPEG、PNG、WebP；单张不超过 20MB，每批最多 20 张。
+- 图片仅支持 JPEG、PNG、WebP；单张不超过 50MB，每批最多 20 张。
 
 ## 生产要求
 
