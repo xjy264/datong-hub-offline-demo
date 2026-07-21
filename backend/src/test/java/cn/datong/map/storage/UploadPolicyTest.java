@@ -3,9 +3,14 @@ package cn.datong.map.storage;
 import cn.datong.map.common.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.ByteArrayInputStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class UploadPolicyTest {
     private final UploadPolicy policy = new UploadPolicy();
@@ -30,6 +35,26 @@ class UploadPolicyTest {
         MockMultipartFile[] files = new MockMultipartFile[21];
         for (int i = 0; i < files.length; i++) files[i] = file(i + ".png", "image/png", new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a});
         assertThatThrownBy(() -> policy.validateBatch(files)).hasMessage("每批最多上传20张图片");
+    }
+
+    @Test
+    void acceptsImageAtFiftyMegabytes() throws Exception {
+        MultipartFile image = mock(MultipartFile.class);
+        when(image.getSize()).thenReturn(50L * 1024 * 1024);
+        when(image.getContentType()).thenReturn("image/jpeg");
+        when(image.getInputStream()).thenReturn(new ByteArrayInputStream(new byte[]{(byte) 0xff, (byte) 0xd8, (byte) 0xff}));
+
+        assertThat(policy.validateImage(image)).isEqualTo("image/jpeg");
+    }
+
+    @Test
+    void rejectsImageLargerThanFiftyMegabytes() {
+        MultipartFile image = mock(MultipartFile.class);
+        when(image.getSize()).thenReturn(50L * 1024 * 1024 + 1);
+
+        assertThatThrownBy(() -> policy.validateImage(image))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("单张图片不能超过50MB");
     }
 
     @Test

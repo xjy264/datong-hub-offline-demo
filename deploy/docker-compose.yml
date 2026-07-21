@@ -97,7 +97,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?请配置JWT_SECRET}
       APP_PRODUCTION: ${APP_PRODUCTION:-false}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
-      MAX_FILE_SIZE: 20MB
+      MAX_FILE_SIZE: 50MB
       MAX_REQUEST_SIZE: 100MB
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError
     ports:

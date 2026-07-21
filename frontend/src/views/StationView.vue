@@ -275,7 +275,7 @@ async function uploadImages(event: Event) {
     await map.uploadImages(station.value.id, selectedFolder.value.id, files)
     ElMessage.success('已上传图片')
   } catch (error) {
-    if (error instanceof Error && error.message.includes('20MB')) ElMessage.error(error.message)
+    if (error instanceof Error && error.message.includes('50MB')) ElMessage.error(error.message)
   } finally {
     input.value = ''
   }
@@ -289,7 +289,7 @@ async function uploadOverviewImages(event: Event) {
     await map.uploadOverviewImages(station.value.id, files)
     ElMessage.success('已上传车站总图')
   } catch (error) {
-    if (error instanceof Error && error.message.includes('20MB')) ElMessage.error(error.message)
+    if (error instanceof Error && error.message.includes('50MB')) ElMessage.error(error.message)
   } finally {
     input.value = ''
   }
