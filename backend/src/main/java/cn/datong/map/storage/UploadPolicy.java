@@ -12,7 +12,7 @@ import java.util.Arrays;
 @Component
 public class UploadPolicy {
     public static final int MAX_IMAGE_COUNT = 20;
-    public static final long MAX_IMAGE_BYTES = 20L * 1024 * 1024;
+    public static final long MAX_IMAGE_BYTES = 50L * 1024 * 1024;
     public static final long MAX_PDF_BYTES = 50L * 1024 * 1024;
     public static final long MAX_IMPORT_BYTES = 50L * 1024 * 1024;
 
@@ -23,7 +23,7 @@ public class UploadPolicy {
 
     public String validateImage(MultipartFile file) {
         if (file == null || file.isEmpty()) throw new BusinessException("图片文件不能为空");
-        if (file.getSize() > MAX_IMAGE_BYTES) throw new BusinessException("单张图片不能超过20MB");
+        if (file.getSize() > MAX_IMAGE_BYTES) throw new BusinessException("单张图片不能超过50MB");
         try (InputStream input = file.getInputStream()) {
             return validateImageBytes(input.readNBytes(12), file.getContentType());
         } catch (IOException ex) {
