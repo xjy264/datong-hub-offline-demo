@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [main, pre, staging, codex/**]
   pull_request:
+    branches: [main, pre, staging]
   workflow_dispatch:
     inputs:
       windows_offline_package:
