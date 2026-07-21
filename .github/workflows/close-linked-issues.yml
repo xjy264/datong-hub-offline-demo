@@ -1,0 +1,31 @@
+name: Close linked issues
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, pre, staging]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  close-linked-issues:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const path = require('node:path')
+            const scriptPath = path.join(
+              process.env.GITHUB_WORKSPACE,
+              '.github/scripts/close-linked-issues.cjs',
+            )
+            const { closeLinkedIssues } = require(scriptPath)
+            await closeLinkedIssues({ github, context, core })
