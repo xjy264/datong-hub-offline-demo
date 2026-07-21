@@ -116,6 +116,7 @@ foreach ($packageFile in @('Windows一键部署教程.md','Windows一键部署�
 }
 Assert-Contains "zipPath + '.sha256'" $buildContent 'package builder should emit a ZIP SHA-256 sidecar'
 Assert-Contains "Compress-Archive -Path (Join-Path `$stageRoot '*')" $buildContent 'ZIP should extract directly into C:\DatongMap without a nested folder'
+Assert-Contains 'RuntimeSeedPackage' $buildContent 'offline rebuild should support a previously verified runtime seed package'
 Assert-True (Test-Path (Join-Path $PSScriptRoot '..\Windows一键部署教程.md')) 'field tutorial Markdown should be tracked'
 Assert-True (Test-Path (Join-Path $PSScriptRoot '..\Windows一键部署教程.html')) 'field tutorial HTML should be tracked'
 

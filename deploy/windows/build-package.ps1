@@ -2,6 +2,7 @@
 param(
     [ValidateSet('Slim','Offline')][string]$Mode = 'Slim',
     [string]$RuntimeCache = (Join-Path ([IO.Path]::GetTempPath()) 'datong-windows-runtime'),
+    [string]$RuntimeSeedPackage = '',
     [switch]$SkipBuild
 )
 
@@ -60,6 +61,27 @@ function Remove-Tree([string]$Path) {
     Remove-Item $Path -Recurse -Force
 }
 
+function Copy-RuntimeSeed([string]$Archive, [string]$Destination) {
+    if (-not (Test-Path $Archive)) { throw "运行组件种子包不存在：$Archive" }
+    $temp = Join-Path $outputRoot ('runtime-seed-' + [guid]::NewGuid().ToString('N'))
+    try {
+        Expand-Archive -Path $Archive -DestinationPath $temp -Force
+        $children = @(Get-ChildItem $temp)
+        $seedRoot = if ($children.Count -eq 1 -and $children[0].PSIsContainer) { $children[0].FullName } else { $temp }
+        $seedLockPath = Join-Path $seedRoot 'runtime-lock.json'
+        $seedRuntime = Join-Path $seedRoot 'runtime'
+        if (-not (Test-Path $seedLockPath) -or -not (Test-Path $seedRuntime)) { throw '运行组件种子包缺少runtime或runtime-lock.json。' }
+        $seedLock = Get-Content $seedLockPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($expected in $lock.Components) {
+            $actual = @($seedLock.Components | Where-Object { $_.FileName -eq $expected.FileName }) | Select-Object -First 1
+            if (-not $actual -or $actual.Version -ne $expected.Version -or $actual.Sha256 -ne $expected.Sha256 -or $actual.Target -ne $expected.Target) {
+                throw "运行组件种子包版本不匹配：$($expected.Name)"
+            }
+        }
+        Copy-Item $seedRuntime $Destination -Recurse -Force
+    } finally { Remove-Tree $temp }
+}
+
 if (-not $SkipBuild) {
     $npm = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'npm.cmd' } else { 'npm' }
     $mvn = if ($IsWindows -or $env:OS -eq 'Windows_NT') { 'mvn.cmd' } else { 'mvn' }
@@ -95,15 +117,19 @@ Get-ChildItem (Join-Path $stageRoot 'scripts') -Recurse -Include *.ps1,*.psm1 | 
 
 if ($Mode -eq 'Offline') {
     $runtimeRoot = Join-Path $stageRoot 'runtime'
-    foreach ($item in $lock.Components) {
-        $download = Download-LockedRuntime $item
-        switch ($item.Target) {
-            'java' { Copy-ZipContent $download (Join-Path $runtimeRoot 'java') }
-            'mysql' { Copy-ZipContent $download (Join-Path $runtimeRoot 'mysql') }
-            'minio/minio.exe' { New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot 'minio') | Out-Null; Copy-Item $download (Join-Path $runtimeRoot 'minio/minio.exe') }
-            'minio/mc.exe' { New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot 'minio') | Out-Null; Copy-Item $download (Join-Path $runtimeRoot 'minio/mc.exe') }
-            'winsw/WinSW-x64.exe' { New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot 'winsw') | Out-Null; Copy-Item $download (Join-Path $runtimeRoot 'winsw/WinSW-x64.exe') }
-            'prerequisites/vc_redist.x64.exe' { New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot 'prerequisites') | Out-Null; Copy-Item $download (Join-Path $runtimeRoot 'prerequisites/vc_redist.x64.exe') }
+    if ($RuntimeSeedPackage) {
+        Copy-RuntimeSeed $RuntimeSeedPackage $runtimeRoot
+    } else {
+        foreach ($item in $lock.Components) {
+            $download = Download-LockedRuntime $item
+            switch ($item.Target) {
+                'java' { Copy-ZipContent $download (Join-Path $runtimeRoot 'java') }
+                'mysql' { Copy-ZipContent $download (Join-Path $runtimeRoot 'mysql') }
+                'minio/minio.exe' { New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot 'minio') | Out-Null; Copy-Item $download (Join-Path $runtimeRoot 'minio/minio.exe') }
+                'minio/mc.exe' { New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot 'minio') | Out-Null; Copy-Item $download (Join-Path $runtimeRoot 'minio/mc.exe') }
+                'winsw/WinSW-x64.exe' { New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot 'winsw') | Out-Null; Copy-Item $download (Join-Path $runtimeRoot 'winsw/WinSW-x64.exe') }
+                'prerequisites/vc_redist.x64.exe' { New-Item -ItemType Directory -Force -Path (Join-Path $runtimeRoot 'prerequisites') | Out-Null; Copy-Item $download (Join-Path $runtimeRoot 'prerequisites/vc_redist.x64.exe') }
+            }
         }
     }
     $lock.Components | ForEach-Object { "$($_.Sha256)  $($_.FileName)" } | Set-Content (Join-Path $stageRoot 'runtime-checksums.txt') -Encoding ASCII
