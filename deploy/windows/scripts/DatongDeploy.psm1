@@ -58,6 +58,35 @@ function Enable-DatongTls12 {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 }
 
+function Invoke-DatongHttpsRequest {
+    param(
+        [Parameter(Mandatory=$true)][string]$Uri,
+        [int]$TimeoutSec = 10
+    )
+    Enable-DatongTls12
+    if (-not ('DatongTrustAllCertificatePolicy' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+public sealed class DatongTrustAllCertificatePolicy : ICertificatePolicy {
+    public bool CheckValidationResult(ServicePoint servicePoint, X509Certificate certificate, WebRequest request, int certificateProblem) {
+        return true;
+    }
+}
+'@
+    }
+    $oldCertificatePolicy = [Net.ServicePointManager]::CertificatePolicy
+    $oldCertificateCallback = [Net.ServicePointManager]::ServerCertificateValidationCallback
+    try {
+        [Net.ServicePointManager]::ServerCertificateValidationCallback = $null
+        [Net.ServicePointManager]::CertificatePolicy = New-Object DatongTrustAllCertificatePolicy
+        return Invoke-WebRequest -UseBasicParsing -Uri $Uri -TimeoutSec $TimeoutSec
+    } finally {
+        [Net.ServicePointManager]::CertificatePolicy = $oldCertificatePolicy
+        [Net.ServicePointManager]::ServerCertificateValidationCallback = $oldCertificateCallback
+    }
+}
+
 function Test-DatongExecutableProbe {
     param(
         [string]$Path,
@@ -329,4 +358,4 @@ function Resolve-DatongPackageRoot([string]$ScriptRoot) {
     return (Resolve-Path (Join-Path $ScriptRoot '..')).Path
 }
 
-Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Test-DatongWindowsCompatibility, Test-DatongPowerShellCompatibility, Get-DatongDiskAssessment, Enable-DatongTls12, Test-DatongExecutableProbe, New-DatongZip, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, Get-DatongBundledMySqlPort, Get-DatongReusableProjectSettings, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, New-DatongDeploymentState, Save-DatongJson, Read-DatongJson, Write-DatongReport, Write-DatongDeploymentProgress, Set-DatongPrivateAcl, Resolve-DatongPackageRoot
+Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Test-DatongWindowsCompatibility, Test-DatongPowerShellCompatibility, Get-DatongDiskAssessment, Enable-DatongTls12, Invoke-DatongHttpsRequest, Test-DatongExecutableProbe, New-DatongZip, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, Get-DatongBundledMySqlPort, Get-DatongReusableProjectSettings, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, New-DatongDeploymentState, Save-DatongJson, Read-DatongJson, Write-DatongReport, Write-DatongDeploymentProgress, Set-DatongPrivateAcl, Resolve-DatongPackageRoot

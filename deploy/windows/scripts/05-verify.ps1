@@ -14,22 +14,16 @@ $services = @(@($settings.MySqlServiceName, 'DatongMapMinIO', 'DatongMapBackend'
 })
 $deadline = (Get-Date).AddMinutes(2)
 $health = $null
-$oldCallback = [Net.ServicePointManager]::ServerCertificateValidationCallback
-try {
-    Enable-DatongTls12
-    Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'HEALTH' -Status 'RUNNING' -StartedAt $startedAt)
-    [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-    do {
-        try { $health = Invoke-WebRequest -UseBasicParsing -Uri "https://127.0.0.1:$($settings.ServerPort)/actuator/health" -TimeoutSec 5 }
-        catch { Start-Sleep -Seconds 3 }
-    } while (-not $health -and (Get-Date) -lt $deadline)
-    if ($health) {
-        Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'FRONTEND' -Status 'RUNNING' -StartedAt $startedAt)
-        $homeResponse = Invoke-WebRequest -UseBasicParsing -Uri "https://127.0.0.1:$($settings.ServerPort)/" -TimeoutSec 10
-    } else { $homeResponse = $null }
-} finally {
-    [Net.ServicePointManager]::ServerCertificateValidationCallback = $oldCallback
-}
+Enable-DatongTls12
+Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'HEALTH' -Status 'RUNNING' -StartedAt $startedAt)
+do {
+    try { $health = Invoke-DatongHttpsRequest -Uri "https://127.0.0.1:$($settings.ServerPort)/actuator/health" -TimeoutSec 5 }
+    catch { Start-Sleep -Seconds 3 }
+} while (-not $health -and (Get-Date) -lt $deadline)
+if ($health) {
+    Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'FRONTEND' -Status 'RUNNING' -StartedAt $startedAt)
+    $homeResponse = Invoke-DatongHttpsRequest -Uri "https://127.0.0.1:$($settings.ServerPort)/" -TimeoutSec 10
+} else { $homeResponse = $null }
 $ports = @(@(8012, 9011, 9012, [int]$settings.MySqlPort) | ForEach-Object {
     $owner = Get-DatongPortOwner $_
     if ($owner) { $owner } else { [pscustomobject]@{ Port = $_; Address = ''; ProcessId = 0; ProcessName = '未监听' } }

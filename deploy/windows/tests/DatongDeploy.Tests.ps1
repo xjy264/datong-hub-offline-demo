@@ -190,10 +190,18 @@ Assert-Contains 'WINDOWS_TLS_KEYSTORE = Xml $settings.CertificatePath' $serviceI
 Assert-Contains 'WINDOWS_TLS_KEYSTORE_PASSWORD = Xml $settings.CertificatePassword' $serviceInstallContent 'service installation should render the generated TLS keystore password'
 $verifyContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\05-verify.ps1') -Raw -Encoding UTF8
 Assert-Contains 'Enable-DatongTls12' $verifyContent 'deployment verification should explicitly enable TLS 1.2'
+Assert-Contains 'Invoke-DatongHttpsRequest' $verifyContent 'deployment verification should use the runspace-safe HTTPS helper'
+Assert-False ($verifyContent.Contains('ServerCertificateValidationCallback = { $true }')) 'deployment verification should not use a PowerShell script block as the TLS callback'
 Assert-Contains '$homeResponse' $verifyContent 'deployment verification should avoid the read-only HOME automatic variable'
 Assert-False ([regex]::IsMatch($verifyContent, '(?im)\$home\b')) 'deployment verification should not assign to the read-only HOME automatic variable'
 $statusContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\status.ps1') -Raw -Encoding UTF8
 Assert-Contains 'Enable-DatongTls12' $statusContent 'status health check should explicitly enable TLS 1.2'
+Assert-Contains 'Invoke-DatongHttpsRequest' $statusContent 'status health check should use the runspace-safe HTTPS helper'
+Assert-False ($statusContent.Contains('ServerCertificateValidationCallback = { $true }')) 'status health check should not use a PowerShell script block as the TLS callback'
+$moduleContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\DatongDeploy.psm1') -Raw -Encoding UTF8
+Assert-Contains 'ICertificatePolicy' $moduleContent 'HTTPS helper should use a CLR certificate policy that does not require a PowerShell runspace'
+Assert-Contains '[Net.ServicePointManager]::CertificatePolicy = $oldCertificatePolicy' $moduleContent 'HTTPS helper should restore the previous certificate policy'
+Assert-Contains '[Net.ServicePointManager]::ServerCertificateValidationCallback = $oldCertificateCallback' $moduleContent 'HTTPS helper should restore the previous certificate callback'
 
 $uninstallContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\uninstall.ps1') -Raw -Encoding UTF8
 Assert-Contains '[switch]$RemoveCertificates' $uninstallContent 'uninstaller should expose certificate cleanup explicitly'
