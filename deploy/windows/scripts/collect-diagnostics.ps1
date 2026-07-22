@@ -94,6 +94,13 @@ try {
         }
     }
 
+    $mysqlLogs = Join-Path $DataRoot 'mysql\data'
+    if (Test-Path $mysqlLogs) {
+        Get-ChildItem $mysqlLogs -Filter '*.err' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 3 | ForEach-Object {
+            Write-SafeText (Join-Path (Join-Path $work 'logs\mysql') $_.Name) ((Get-Content $_.FullName -Tail 500 -ErrorAction SilentlyContinue) -join "`r`n")
+        }
+    }
+
     New-DatongZip -SourceDirectory $work -DestinationPath $zip
 } finally {
     Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue

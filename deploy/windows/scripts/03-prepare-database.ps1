@@ -56,8 +56,20 @@ default-character-set=utf8mb4
     }
     Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 3 -StageName '安装项目独立MySQL' -Component 'MYSQL-SERVICE' -Status 'RUNNING' -StartedAt $startedAt)
     if (-not (Get-Service $settings.MySqlServiceName -ErrorAction SilentlyContinue)) {
-        & $mysqld "--defaults-file=$mysqlConfig" --install $settings.MySqlServiceName
-        if ($LASTEXITCODE -ne 0) { throw '项目独立MySQL服务注册失败。' }
+        $serviceOutput = ''
+        $serviceExitCode = -1
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $serviceOutput = (& $mysqld --install $settings.MySqlServiceName "--defaults-file=$mysqlConfig" 2>&1 | Out-String).Trim()
+            $serviceExitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+        if ($serviceExitCode -ne 0) {
+            if (-not $serviceOutput) { $serviceOutput = '请查看诊断包中的MySQL错误日志。' }
+            throw "项目独立MySQL服务注册失败：$serviceOutput"
+        }
         & sc.exe config $settings.MySqlServiceName start= auto | Out-Null
     }
     Start-Service $settings.MySqlServiceName

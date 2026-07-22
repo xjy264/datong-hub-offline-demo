@@ -179,6 +179,7 @@ Assert-Contains 'DatongWinSWProbe.xml' $checkContent 'WinSW probe should supply 
 $databaseContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\03-prepare-database.ps1') -Raw -Encoding UTF8
 Assert-Contains 'Test-DatongExecutableProbe' $databaseContent 'database stage should repeat the MySQL probe after installing the VC runtime'
 Assert-Contains "ExpectedPattern '8\.0\.28'" $databaseContent 'database stage should enforce the locked MySQL compatibility version'
+Assert-Contains '& $mysqld --install $settings.MySqlServiceName "--defaults-file=$mysqlConfig"' $databaseContent 'MySQL service mode must precede defaults-file so mysqld registers instead of starting in console mode'
 Assert-Contains 'mirror local/datong-map' $databaseContent 'pre-upgrade backup should include MinIO objects as well as MySQL'
 $verifyContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\05-verify.ps1') -Raw -Encoding UTF8
 Assert-Contains 'Enable-DatongTls12' $verifyContent 'deployment verification should explicitly enable TLS 1.2'
@@ -201,6 +202,8 @@ Assert-Contains 'schtasks.exe /Query' $diagnosticsContent 'diagnostics should ca
 Assert-Contains '计划任务尚未创建' $diagnosticsContent 'diagnostics should tolerate the backup task not existing yet'
 Assert-Contains 'Get-NetFirewallRule' $diagnosticsContent 'diagnostics should capture the project firewall rule'
 Assert-Contains 'CertificateThumbprint' $diagnosticsContent 'diagnostics should report the project certificate thumbprint without exporting secrets'
+Assert-Contains "'mysql\data'" $diagnosticsContent 'diagnostics should capture the bundled MySQL error log after an early service failure'
+Assert-Contains "'*.err'" $diagnosticsContent 'diagnostics should include MySQL error files'
 
 $buildContent = Get-Content (Join-Path $PSScriptRoot '..\build-package.ps1') -Raw -Encoding UTF8
 Assert-Contains '[string]$PackageVersion' $buildContent 'package builder should accept an explicit patch version'
