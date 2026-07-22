@@ -59,10 +59,21 @@ Install-WrappedService 'DatongMapMinIO' $minioServiceExe $minioXml
 Start-Service 'DatongMapMinIO'
 
 $mysqlDependency = if ($settings.OwnsMySqlService) { '<depend>' + (Xml $settings.MySqlServiceName) + '</depend>' } else { '' }
+$mysqlUrl = "jdbc:mysql://127.0.0.1:$($settings.MySqlPort)/$($settings.MySqlDatabase)?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai"
 $backendXml = Render (Join-Path $packageRoot 'service\backend.xml.template') @{
     JAVA_EXE = Xml $java
     APP_JAR = Xml $jar
     APP_CONFIG = Xml $properties
+    WINDOWS_TLS_KEYSTORE = Xml $settings.CertificatePath
+    WINDOWS_TLS_KEYSTORE_PASSWORD = Xml $settings.CertificatePassword
+    MYSQL_URL = Xml $mysqlUrl
+    MYSQL_USER = Xml $settings.MySqlUser
+    MYSQL_PASSWORD = Xml $settings.MySqlPassword
+    JWT_SECRET = Xml $settings.JwtSecret
+    MINIO_ENDPOINT = Xml 'http://127.0.0.1:9011'
+    MINIO_ACCESS_KEY = Xml $settings.MinioAccessKey
+    MINIO_SECRET_KEY = Xml $settings.MinioSecretKey
+    APP_LOG_FILE = Xml (Join-Path $backendLogs 'application.log')
     MYSQL_DEPENDENCY = $mysqlDependency
     LOG_PATH = Xml $backendLogs
 }

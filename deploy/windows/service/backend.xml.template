@@ -3,6 +3,16 @@
   <name>大同示意图应用服务</name>
   <description>大同示意图前端与API服务</description>
   <executable>@@JAVA_EXE@@</executable>
+  <env name="WINDOWS_TLS_KEYSTORE" value="@@WINDOWS_TLS_KEYSTORE@@" />
+  <env name="WINDOWS_TLS_KEYSTORE_PASSWORD" value="@@WINDOWS_TLS_KEYSTORE_PASSWORD@@" />
+  <env name="MYSQL_URL" value="@@MYSQL_URL@@" />
+  <env name="MYSQL_USER" value="@@MYSQL_USER@@" />
+  <env name="MYSQL_PASSWORD" value="@@MYSQL_PASSWORD@@" />
+  <env name="JWT_SECRET" value="@@JWT_SECRET@@" />
+  <env name="MINIO_ENDPOINT" value="@@MINIO_ENDPOINT@@" />
+  <env name="MINIO_ACCESS_KEY" value="@@MINIO_ACCESS_KEY@@" />
+  <env name="MINIO_SECRET_KEY" value="@@MINIO_SECRET_KEY@@" />
+  <env name="APP_LOG_FILE" value="@@APP_LOG_FILE@@" />
   <arguments>-Xms256m -Xmx768m -jar &quot;@@APP_JAR@@&quot; --spring.config.additional-location=file:&quot;@@APP_CONFIG@@&quot;</arguments>
   <depend>DatongMapMinIO</depend>
   @@MYSQL_DEPENDENCY@@

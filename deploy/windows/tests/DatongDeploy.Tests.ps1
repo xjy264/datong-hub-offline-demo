@@ -181,6 +181,13 @@ Assert-Contains 'Test-DatongExecutableProbe' $databaseContent 'database stage sh
 Assert-Contains "ExpectedPattern '8\.0\.28'" $databaseContent 'database stage should enforce the locked MySQL compatibility version'
 Assert-Contains '& $mysqld --install $settings.MySqlServiceName "--defaults-file=$mysqlConfig"' $databaseContent 'MySQL service mode must precede defaults-file so mysqld registers instead of starting in console mode'
 Assert-Contains 'mirror local/datong-map' $databaseContent 'pre-upgrade backup should include MinIO objects as well as MySQL'
+$backendServiceTemplate = Get-Content (Join-Path $PSScriptRoot '..\service\backend.xml.template') -Raw -Encoding UTF8
+foreach ($requiredEnvironment in @('WINDOWS_TLS_KEYSTORE','WINDOWS_TLS_KEYSTORE_PASSWORD','MYSQL_URL','MYSQL_USER','MYSQL_PASSWORD','JWT_SECRET','MINIO_ENDPOINT','MINIO_ACCESS_KEY','MINIO_SECRET_KEY')) {
+    Assert-Contains ('<env name="' + $requiredEnvironment + '"') $backendServiceTemplate "backend service should pass $requiredEnvironment to the active windows profile"
+}
+$serviceInstallContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\04-install-services.ps1') -Raw -Encoding UTF8
+Assert-Contains 'WINDOWS_TLS_KEYSTORE = Xml $settings.CertificatePath' $serviceInstallContent 'service installation should render the generated TLS keystore path'
+Assert-Contains 'WINDOWS_TLS_KEYSTORE_PASSWORD = Xml $settings.CertificatePassword' $serviceInstallContent 'service installation should render the generated TLS keystore password'
 $verifyContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\05-verify.ps1') -Raw -Encoding UTF8
 Assert-Contains 'Enable-DatongTls12' $verifyContent 'deployment verification should explicitly enable TLS 1.2'
 Assert-Contains '$homeResponse' $verifyContent 'deployment verification should avoid the read-only HOME automatic variable'
