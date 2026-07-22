@@ -61,6 +61,17 @@ Assert-True $probe.Exists 'runtime probe should confirm that the executable exis
 Assert-True $probe.Passed 'runtime probe should execute the component and validate its output'
 $badProbe = Test-DatongExecutableProbe -Path $probeExecutable -Arguments @('-NoProfile','-Command',"'unexpected-version'") -ExpectedPattern '17\.0\.8\.1'
 Assert-False $badProbe.Passed 'runtime probe should reject an unexpected component version'
+$stderrProbe = Test-DatongExecutableProbe -Path $probeExecutable -Arguments @('-NoProfile','-Command',"[Console]::Error.WriteLine('Temurin 17.0.8.1'); exit 0") -ExpectedPattern '17\.0\.8\.1'
+Assert-True $stderrProbe.Passed 'runtime probe should accept a successful executable that reports its version on stderr'
+
+$criticalDisk = Get-DatongDiskAssessment 4.9
+Assert-False $criticalDisk.Passed 'less than 5GB on the system drive should stop deployment'
+$lowDisk = Get-DatongDiskAssessment 16.7
+Assert-True $lowDisk.Passed 'a system drive with enough installation space should continue deployment'
+Assert-True $lowDisk.Warning 'less than the recommended 20GB should be reported as a warning'
+$healthyDisk = Get-DatongDiskAssessment 25
+Assert-True $healthyDisk.Passed 'a system drive above the recommendation should pass'
+Assert-False $healthyDisk.Warning 'a healthy system drive should not emit a low-space warning'
 
 $secret = New-DatongSecret 24
 Assert-True ($secret -match '^[0-9a-f]{48}$') 'generated secret should be hexadecimal'
@@ -164,6 +175,7 @@ $checkContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\01-check-enviro
 Assert-Contains 'Test-DatongWindowsCompatibility' $checkContent 'environment check should enforce the Windows 6.3 boundary'
 Assert-Contains 'Test-DatongPowerShellCompatibility' $checkContent 'environment check should enforce the PowerShell 4 boundary'
 Assert-Contains 'Test-DatongExecutableProbe' $checkContent 'environment check should execute runtime probes'
+Assert-Contains 'DatongWinSWProbe.xml' $checkContent 'WinSW probe should supply the configuration file required by WinSW 2.x'
 $databaseContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\03-prepare-database.ps1') -Raw -Encoding UTF8
 Assert-Contains 'Test-DatongExecutableProbe' $databaseContent 'database stage should repeat the MySQL probe after installing the VC runtime'
 Assert-Contains "ExpectedPattern '8\.0\.28'" $databaseContent 'database stage should enforce the locked MySQL compatibility version'
@@ -186,10 +198,13 @@ Assert-Contains 'certreq.exe' $configureContent 'certificate generation should u
 Assert-False ($configureContent.Contains('New-SelfSignedCertificate')) 'certificate generation should not depend on the newer PKI cmdlet parameter surface'
 $diagnosticsContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\collect-diagnostics.ps1') -Raw -Encoding UTF8
 Assert-Contains 'schtasks.exe /Query' $diagnosticsContent 'diagnostics should capture the project backup task'
+Assert-Contains '计划任务尚未创建' $diagnosticsContent 'diagnostics should tolerate the backup task not existing yet'
 Assert-Contains 'Get-NetFirewallRule' $diagnosticsContent 'diagnostics should capture the project firewall rule'
 Assert-Contains 'CertificateThumbprint' $diagnosticsContent 'diagnostics should report the project certificate thumbprint without exporting secrets'
 
 $buildContent = Get-Content (Join-Path $PSScriptRoot '..\build-package.ps1') -Raw -Encoding UTF8
+Assert-Contains '[string]$PackageVersion' $buildContent 'package builder should accept an explicit patch version'
+Assert-Contains '[string]$CompatibilityStatus' $buildContent 'package builder should record validation status only after the matching real-machine run'
 foreach ($packageFile in @('Windows一键部署教程.md','Windows一键部署教程.html','package-manifest.json','版本信息.txt')) {
     Assert-Contains $packageFile $buildContent "offline package should include $packageFile"
 }

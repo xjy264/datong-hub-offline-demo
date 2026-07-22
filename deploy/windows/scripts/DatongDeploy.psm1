@@ -39,6 +39,21 @@ function Test-DatongPowerShellCompatibility([version]$Version) {
     return $Version -ge [version]'4.0'
 }
 
+function Get-DatongDiskAssessment {
+    param(
+        [double]$FreeGB,
+        [double]$MinimumGB = 5,
+        [double]$RecommendedGB = 20
+    )
+    return [pscustomobject]@{
+        FreeGB = [math]::Round($FreeGB, 1)
+        Passed = $FreeGB -ge $MinimumGB
+        Warning = $FreeGB -ge $MinimumGB -and $FreeGB -lt $RecommendedGB
+        MinimumGB = $MinimumGB
+        RecommendedGB = $RecommendedGB
+    }
+}
+
 function Enable-DatongTls12 {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 }
@@ -54,11 +69,18 @@ function Test-DatongExecutableProbe {
     }
     $output = ''
     $exitCode = -1
+    $previousErrorActionPreference = $ErrorActionPreference
     try {
+        # Java and several vendor tools intentionally print version information
+        # to stderr. PowerShell 4/5 converts that stream into error records, so
+        # probe it with Continue and judge the native process by LASTEXITCODE.
+        $ErrorActionPreference = 'Continue'
         $output = (& $Path @Arguments 2>&1 | Out-String).Trim()
         $exitCode = $LASTEXITCODE
     } catch {
         $output = $_.Exception.Message
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
     }
     return [pscustomobject]@{
         Path = $Path
@@ -307,4 +329,4 @@ function Resolve-DatongPackageRoot([string]$ScriptRoot) {
     return (Resolve-Path (Join-Path $ScriptRoot '..')).Path
 }
 
-Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Test-DatongWindowsCompatibility, Test-DatongPowerShellCompatibility, Enable-DatongTls12, Test-DatongExecutableProbe, New-DatongZip, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, Get-DatongBundledMySqlPort, Get-DatongReusableProjectSettings, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, New-DatongDeploymentState, Save-DatongJson, Read-DatongJson, Write-DatongReport, Write-DatongDeploymentProgress, Set-DatongPrivateAcl, Resolve-DatongPackageRoot
+Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Test-DatongWindowsCompatibility, Test-DatongPowerShellCompatibility, Get-DatongDiskAssessment, Enable-DatongTls12, Test-DatongExecutableProbe, New-DatongZip, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, Get-DatongBundledMySqlPort, Get-DatongReusableProjectSettings, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, New-DatongDeploymentState, Save-DatongJson, Read-DatongJson, Write-DatongReport, Write-DatongDeploymentProgress, Set-DatongPrivateAcl, Resolve-DatongPackageRoot

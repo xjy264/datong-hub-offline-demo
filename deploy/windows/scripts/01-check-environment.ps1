@@ -48,7 +48,13 @@ if (-not (Test-DatongPowerShellCompatibility $PSVersionTable.PSVersion)) {
 if (-not [Environment]::Is64BitOperatingSystem) { $blockers += '操作系统需要x64架构。'; if (-not $stopComponent) { $stopComponent = 'OS' } }
 if (($computer.TotalPhysicalMemory / 1GB) -lt 4) { $blockers += '物理内存低于4GB。'; if (-not $stopComponent) { $stopComponent = 'MEMORY' } }
 elseif (($computer.TotalPhysicalMemory / 1GB) -lt 8) { $warnings += '物理内存低于推荐的8GB。' }
-if (($drive.FreeSpace / 1GB) -lt 20) { $blockers += '系统盘剩余空间低于20GB。'; if (-not $stopComponent) { $stopComponent = 'DISK' } }
+$disk = Get-DatongDiskAssessment ($drive.FreeSpace / 1GB)
+if (-not $disk.Passed) {
+    $blockers += "系统盘剩余空间低于$($disk.MinimumGB)GB，无法完成程序安装。"
+    if (-not $stopComponent) { $stopComponent = 'DISK' }
+} elseif ($disk.Warning) {
+    $warnings += "系统盘剩余空间为$($disk.FreeGB)GB，低于推荐的$($disk.RecommendedGB)GB；程序可继续安装，请后续关注数据增长。"
+}
 $businessPort = $ports | Where-Object { $_.Port -eq 8012 -and $_.ProcessId -ne 0 }
 if ($businessPort -and $businessPort.ProcessName -notmatch 'java|Datong') {
     $blockers += "8012端口已被进程 $($businessPort.ProcessName) 占用。"
@@ -68,13 +74,35 @@ Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeplo
 foreach ($requiredRuntime in @('Java','MySql','Minio','MinioClient','WinSW','VisualCppRuntimeInstaller')) {
     if (-not (Test-Path $runtimeFiles[$requiredRuntime] -PathType Leaf)) { $blockers += "完整离线包缺少运行组件：$requiredRuntime。"; if (-not $stopComponent) { $stopComponent = 'RUNTIME' } }
 }
-$runtime = [ordered]@{
-    Java = Test-DatongExecutableProbe -Path $runtimeFiles.Java -Arguments @('-version') -ExpectedPattern '17\.0\.8\.1'
-    MySql = [pscustomobject]@{ Path = $runtimeFiles.MySql; Exists = (Test-Path $runtimeFiles.MySql -PathType Leaf); Passed = $false; Output = '阶段03安装Visual C++运行库后执行8.0.28探针'; ExitCode = 0 }
-    Minio = Test-DatongExecutableProbe -Path $runtimeFiles.Minio -Arguments @('--version') -ExpectedPattern 'RELEASE\.2023-07-21T21-12-44Z'
-    MinioClient = Test-DatongExecutableProbe -Path $runtimeFiles.MinioClient -Arguments @('--version') -ExpectedPattern 'RELEASE\.2023-07-21T20-44-27Z'
-    WinSW = Test-DatongExecutableProbe -Path $runtimeFiles.WinSW -Arguments @('version') -ExpectedPattern '2\.12\.0'
-    VisualCppRuntimeInstaller = [pscustomobject]@{ Path = $runtimeFiles.VisualCppRuntimeInstaller; Exists = (Test-Path $runtimeFiles.VisualCppRuntimeInstaller -PathType Leaf); Passed = (Test-Path $runtimeFiles.VisualCppRuntimeInstaller -PathType Leaf); Output = 'hash verified at package build'; ExitCode = 0 }
+$winswProbeRoot = Join-Path $env:TEMP ('DatongWinSWProbe-' + [guid]::NewGuid().ToString('N'))
+try {
+    New-Item -ItemType Directory -Force -Path $winswProbeRoot | Out-Null
+    $winswProbeExe = Join-Path $winswProbeRoot 'DatongWinSWProbe.exe'
+    $winswProbeConfig = Join-Path $winswProbeRoot 'DatongWinSWProbe.xml'
+    if (Test-Path $runtimeFiles.WinSW -PathType Leaf) {
+        Copy-Item $runtimeFiles.WinSW $winswProbeExe -Force
+        $probeExecutable = [Security.SecurityElement]::Escape($env:ComSpec)
+        @"
+<service>
+  <id>DatongWinSWProbe</id>
+  <name>Datong WinSW Probe</name>
+  <description>Temporary runtime probe</description>
+  <executable>$probeExecutable</executable>
+  <arguments>/c exit 0</arguments>
+</service>
+"@ | Set-Content $winswProbeConfig -Encoding UTF8
+    }
+    $runtime = [ordered]@{
+        Java = Test-DatongExecutableProbe -Path $runtimeFiles.Java -Arguments @('-version') -ExpectedPattern '17\.0\.8\.1'
+        MySql = [pscustomobject]@{ Path = $runtimeFiles.MySql; Exists = (Test-Path $runtimeFiles.MySql -PathType Leaf); Passed = $false; Output = '阶段03安装Visual C++运行库后执行8.0.28探针'; ExitCode = 0 }
+        Minio = Test-DatongExecutableProbe -Path $runtimeFiles.Minio -Arguments @('--version') -ExpectedPattern 'RELEASE\.2023-07-21T21-12-44Z'
+        MinioClient = Test-DatongExecutableProbe -Path $runtimeFiles.MinioClient -Arguments @('--version') -ExpectedPattern 'RELEASE\.2023-07-21T20-44-27Z'
+        WinSW = Test-DatongExecutableProbe -Path $winswProbeExe -Arguments @('version') -ExpectedPattern '2\.12\.0'
+        VisualCppRuntimeInstaller = [pscustomobject]@{ Path = $runtimeFiles.VisualCppRuntimeInstaller; Exists = (Test-Path $runtimeFiles.VisualCppRuntimeInstaller -PathType Leaf); Passed = (Test-Path $runtimeFiles.VisualCppRuntimeInstaller -PathType Leaf); Output = 'hash verified at package build'; ExitCode = 0 }
+    }
+    $runtime.WinSW.Path = $runtimeFiles.WinSW
+} finally {
+    Remove-Item $winswProbeRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 foreach ($runtimeName in @('Java','MySql','Minio','MinioClient','WinSW')) {
     if ($runtime[$runtimeName].Exists -and -not $runtime[$runtimeName].Passed) {

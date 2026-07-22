@@ -3,6 +3,8 @@ param(
     [ValidateSet('Slim','Offline')][string]$Mode = 'Slim',
     [string]$RuntimeCache = (Join-Path ([IO.Path]::GetTempPath()) 'datong-windows-runtime'),
     [string]$RuntimeSeedPackage = '',
+    [string]$PackageVersion = '2026.07.22.2',
+    [string]$CompatibilityStatus = 'Windows 11 实机验证中、Server 2012 R2 兼容候选',
     [switch]$SkipBuild
 )
 
@@ -13,7 +15,6 @@ $repoRoot = (Resolve-Path (Join-Path $windowsRoot '..\..')).Path
 $outputRoot = Join-Path $windowsRoot 'output'
 $stageRoot = Join-Path $outputRoot 'datong-map-windows'
 $lock = Get-Content (Join-Path $windowsRoot 'runtime-lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-$packageVersion = '2026.07.22.1'
 
 function Assert-CmdCompatibility([string]$Path) {
     $bytes = [IO.File]::ReadAllBytes($Path)
@@ -162,7 +163,7 @@ $manifest = [ordered]@{
     IncludesJuly21UploadCommit = 'c33b68bcc16acc8bb009fbe0b66e94cbb2f670dd'
     MinimumWindowsVersion = '6.3 (Windows Server 2012 R2)'
     MinimumPowerShellVersion = '4.0'
-    CompatibilityStatus = 'Windows 11 实机通过、Server 2012 R2 兼容候选'
+    CompatibilityStatus = $CompatibilityStatus
     ApplicationJarSha256 = $jarHash
     Components = @($lock.Components | ForEach-Object { [ordered]@{ Name = $_.Name; Version = $_.Version; Target = $_.Target; Sha256 = $_.Sha256 } })
     Features = @('50MB图片安全分批上传','Windows一键离线部署','分阶段故障反馈','自动脱敏诊断包')
@@ -173,7 +174,7 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stageRoot 'package
 版本：$packageVersion
 源码提交：$sourceCommit
 构建时间：$($manifest.BuiltAt)
-兼容状态：Windows 11 实机通过、Server 2012 R2 兼容候选
+兼容状态：$CompatibilityStatus
 最低环境：Windows 6.3、PowerShell 4.0、x64
 包含：7月21日50MB图片上传、一键部署、故障报告、自动诊断包
 部署入口：开始部署.cmd

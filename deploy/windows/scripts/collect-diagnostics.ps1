@@ -59,7 +59,18 @@ try {
     }
 
     if ($env:OS -eq 'Windows_NT') {
-        & schtasks.exe /Query /TN 'DatongMap-DailyBackup' /V /FO LIST 2>&1 | Out-File (Join-Path $work 'scheduled-task.txt') -Encoding UTF8
+        $taskOutput = ''
+        $previousErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $taskOutput = (& schtasks.exe /Query /TN 'DatongMap-DailyBackup' /V /FO LIST 2>&1 | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0) { $taskOutput = '计划任务尚未创建。' }
+        } catch {
+            $taskOutput = '计划任务尚未创建。'
+        } finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+        }
+        Write-SafeText (Join-Path $work 'scheduled-task.txt') $taskOutput
     }
     if (Get-Command Get-NetFirewallRule -ErrorAction SilentlyContinue) {
         Get-NetFirewallRule -DisplayName 'DatongMap-HTTPS-8012' -ErrorAction SilentlyContinue | Format-List * | Out-File (Join-Path $work 'firewall.txt') -Encoding UTF8
