@@ -46,10 +46,10 @@ public class AuthService {
                 rs.getLong("id"), rs.getString("username"), rs.getString("password"), rs.getString("real_name"),
                 rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getInt("deleted")
         ), phone, phone);
-        if (users.isEmpty() || users.getFirst().deleted() == 1 || !passwordEncoder.matches(request.password(), users.getFirst().password())) {
+        if (users.isEmpty() || users.get(0).deleted() == 1 || !passwordEncoder.matches(request.password(), users.get(0).password())) {
             throw new BusinessException("手机号或密码错误");
         }
-        UserRow user = users.getFirst();
+        UserRow user = users.get(0);
         if (!"APPROVED".equals(user.approvalStatus()) || !"ENABLED".equals(user.status())) {
             throw new BusinessException("账号已禁用，请联系管理员");
         }
@@ -66,10 +66,10 @@ public class AuthService {
                 rs.getLong("id"), rs.getString("username"), rs.getString("password"), rs.getString("real_name"),
                 rs.getString("phone"), rs.getString("status"), rs.getString("approval_status"), rs.getInt("deleted")
         ), userId);
-        if (users.isEmpty() || users.getFirst().deleted() == 1) {
+        if (users.isEmpty() || users.get(0).deleted() == 1) {
             throw new BusinessException("用户不存在");
         }
-        return session(users.getFirst());
+        return session(users.get(0));
     }
 
     private AuthSessionResponse session(UserRow user) {

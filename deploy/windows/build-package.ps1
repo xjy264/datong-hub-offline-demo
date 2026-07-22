@@ -8,11 +8,24 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $windowsRoot = $PSScriptRoot
+Import-Module (Join-Path $windowsRoot 'scripts\DatongDeploy.psm1') -Force
 $repoRoot = (Resolve-Path (Join-Path $windowsRoot '..\..')).Path
 $outputRoot = Join-Path $windowsRoot 'output'
 $stageRoot = Join-Path $outputRoot 'datong-map-windows'
 $lock = Get-Content (Join-Path $windowsRoot 'runtime-lock.json') -Raw -Encoding UTF8 | ConvertFrom-Json
-$packageVersion = '2026.07.21.1'
+$packageVersion = '2026.07.22.1'
+
+function Assert-CmdCompatibility([string]$Path) {
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    foreach ($byte in $bytes) {
+        if ($byte -gt 127) { throw "CMD入口包含非ASCII字节：$Path" }
+        if (($byte -lt 32 -and $byte -notin @(9,10,13)) -or $byte -eq 127) { throw "CMD入口包含隐藏控制字节：$Path" }
+    }
+    for ($index = 0; $index -lt $bytes.Length; $index++) {
+        if ($bytes[$index] -eq 10 -and ($index -eq 0 -or $bytes[$index - 1] -ne 13)) { throw "CMD入口包含非CRLF换行：$Path" }
+        if ($bytes[$index] -eq 13 -and ($index + 1 -ge $bytes.Length -or $bytes[$index + 1] -ne 10)) { throw "CMD入口包含非CRLF换行：$Path" }
+    }
+}
 
 function Run([string]$File, [string[]]$Arguments, [string]$WorkingDirectory) {
     Push-Location $WorkingDirectory
@@ -109,6 +122,7 @@ foreach ($folder in @('scripts','service','config')) { Copy-Item (Join-Path $win
 foreach ($file in @('开始部署.cmd','开始环境检测.cmd','客户端证书安装.cmd','Windows部署操作手册.md','Windows部署操作手册.html','Windows一键部署教程.md','Windows一键部署教程.html','runtime-lock.json')) {
     Copy-Item (Join-Path $windowsRoot $file) (Join-Path $stageRoot $file)
 }
+Get-ChildItem $stageRoot -Filter '*.cmd' | ForEach-Object { Assert-CmdCompatibility $_.FullName }
 $utf8Bom = New-Object Text.UTF8Encoding($true)
 Get-ChildItem (Join-Path $stageRoot 'scripts') -Recurse -Include *.ps1,*.psm1 | ForEach-Object {
     $content = [IO.File]::ReadAllText($_.FullName, [Text.Encoding]::UTF8)
@@ -146,6 +160,9 @@ $manifest = [ordered]@{
     SourceCommit = $sourceCommit
     SourceBranch = $sourceBranch
     IncludesJuly21UploadCommit = 'c33b68bcc16acc8bb009fbe0b66e94cbb2f670dd'
+    MinimumWindowsVersion = '6.3 (Windows Server 2012 R2)'
+    MinimumPowerShellVersion = '4.0'
+    CompatibilityStatus = 'Windows 11 实机通过、Server 2012 R2 兼容候选'
     ApplicationJarSha256 = $jarHash
     Components = @($lock.Components | ForEach-Object { [ordered]@{ Name = $_.Name; Version = $_.Version; Target = $_.Target; Sha256 = $_.Sha256 } })
     Features = @('50MB图片安全分批上传','Windows一键离线部署','分阶段故障反馈','自动脱敏诊断包')
@@ -156,6 +173,8 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stageRoot 'package
 版本：$packageVersion
 源码提交：$sourceCommit
 构建时间：$($manifest.BuiltAt)
+兼容状态：Windows 11 实机通过、Server 2012 R2 兼容候选
+最低环境：Windows 6.3、PowerShell 4.0、x64
 包含：7月21日50MB图片上传、一键部署、故障报告、自动诊断包
 部署入口：开始部署.cmd
 "@ | Set-Content (Join-Path $stageRoot '版本信息.txt') -Encoding UTF8
@@ -163,7 +182,7 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stageRoot 'package
 $zipName = if ($Mode -eq 'Offline') { 'datong-map-windows-offline.zip' } else { 'datong-map-windows-slim.zip' }
 $zipPath = Join-Path $outputRoot $zipName
 Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $zipPath -CompressionLevel Optimal
+New-DatongZip -SourceDirectory $stageRoot -DestinationPath $zipPath
 $zipHash = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $shaPath = $zipPath + '.sha256'
 "$zipHash  $zipName" | Set-Content $shaPath -Encoding ASCII

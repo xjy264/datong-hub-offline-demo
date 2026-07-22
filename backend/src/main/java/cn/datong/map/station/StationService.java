@@ -313,14 +313,14 @@ public class StationService {
         List<FolderRow> folders = jdbcTemplate.query("SELECT id, station_id, parent_id FROM station_folder WHERE id = ?",
                 (rs, rowNum) -> new FolderRow(rs.getString("id"), rs.getString("station_id"), rs.getString("parent_id")), folderId);
         if (folders.isEmpty()) throw new BusinessException("目录不存在");
-        return folders.getFirst();
+        return folders.get(0);
     }
 
     private ImageRow requireImage(String imageId) {
         List<ImageRow> images = jdbcTemplate.query("SELECT id, name, content_type, bucket, object_name FROM station_image WHERE id = ?",
                 (rs, rowNum) -> new ImageRow(rs.getString("id"), rs.getString("name"), rs.getString("content_type"), rs.getString("bucket"), rs.getString("object_name")), imageId);
         if (images.isEmpty()) throw new BusinessException("图片不存在");
-        return images.getFirst();
+        return images.get(0);
     }
 
     private int folderDepth(String folderId) {

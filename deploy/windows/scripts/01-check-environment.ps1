@@ -37,6 +37,14 @@ $blockers = @()
 $warnings = @()
 $stopComponent = ''
 
+if (-not (Test-DatongWindowsCompatibility ([version]$os.Version))) {
+    $blockers += "操作系统版本 $($os.Version) 低于最低要求 Windows 6.3（Windows Server 2012 R2）。"
+    if (-not $stopComponent) { $stopComponent = 'OS' }
+}
+if (-not (Test-DatongPowerShellCompatibility $PSVersionTable.PSVersion)) {
+    $blockers += "PowerShell版本 $($PSVersionTable.PSVersion) 低于最低要求4.0。"
+    if (-not $stopComponent) { $stopComponent = 'POWERSHELL' }
+}
 if (-not [Environment]::Is64BitOperatingSystem) { $blockers += '操作系统需要x64架构。'; if (-not $stopComponent) { $stopComponent = 'OS' } }
 if (($computer.TotalPhysicalMemory / 1GB) -lt 4) { $blockers += '物理内存低于4GB。'; if (-not $stopComponent) { $stopComponent = 'MEMORY' } }
 elseif (($computer.TotalPhysicalMemory / 1GB) -lt 8) { $warnings += '物理内存低于推荐的8GB。' }
@@ -48,17 +56,35 @@ if ($businessPort -and $businessPort.ProcessName -notmatch 'java|Datong') {
 }
 if (-not (Test-DatongAdministrator)) { $warnings += '当前窗口不是管理员PowerShell，后续配置阶段需要管理员权限。' }
 
-$runtime = [ordered]@{
-    Java = Test-Path (Join-Path $packageRoot 'runtime\java\bin\java.exe')
-    MySql = Test-Path (Join-Path $packageRoot 'runtime\mysql\bin\mysqld.exe')
-    Minio = Test-Path (Join-Path $packageRoot 'runtime\minio\minio.exe')
-    MinioClient = Test-Path (Join-Path $packageRoot 'runtime\minio\mc.exe')
-    WinSW = Test-Path (Join-Path $packageRoot 'runtime\winsw\WinSW-x64.exe')
-    VisualCppRuntimeInstaller = Test-Path (Join-Path $packageRoot 'runtime\prerequisites\vc_redist.x64.exe')
+$runtimeFiles = [ordered]@{
+    Java = Join-Path $packageRoot 'runtime\java\bin\java.exe'
+    MySql = Join-Path $packageRoot 'runtime\mysql\bin\mysqld.exe'
+    Minio = Join-Path $packageRoot 'runtime\minio\minio.exe'
+    MinioClient = Join-Path $packageRoot 'runtime\minio\mc.exe'
+    WinSW = Join-Path $packageRoot 'runtime\winsw\WinSW-x64.exe'
+    VisualCppRuntimeInstaller = Join-Path $packageRoot 'runtime\prerequisites\vc_redist.x64.exe'
 }
 Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 1 -StageName '环境与离线包检测' -Component 'RUNTIME' -Status 'RUNNING' -StartedAt $startedAt)
 foreach ($requiredRuntime in @('Java','MySql','Minio','MinioClient','WinSW','VisualCppRuntimeInstaller')) {
-    if (-not $runtime[$requiredRuntime]) { $blockers += "完整离线包缺少运行组件：$requiredRuntime。"; if (-not $stopComponent) { $stopComponent = 'RUNTIME' } }
+    if (-not (Test-Path $runtimeFiles[$requiredRuntime] -PathType Leaf)) { $blockers += "完整离线包缺少运行组件：$requiredRuntime。"; if (-not $stopComponent) { $stopComponent = 'RUNTIME' } }
+}
+$runtime = [ordered]@{
+    Java = Test-DatongExecutableProbe -Path $runtimeFiles.Java -Arguments @('-version') -ExpectedPattern '17\.0\.8\.1'
+    MySql = [pscustomobject]@{ Path = $runtimeFiles.MySql; Exists = (Test-Path $runtimeFiles.MySql -PathType Leaf); Passed = $false; Output = '阶段03安装Visual C++运行库后执行8.0.28探针'; ExitCode = 0 }
+    Minio = Test-DatongExecutableProbe -Path $runtimeFiles.Minio -Arguments @('--version') -ExpectedPattern 'RELEASE\.2023-07-21T21-12-44Z'
+    MinioClient = Test-DatongExecutableProbe -Path $runtimeFiles.MinioClient -Arguments @('--version') -ExpectedPattern 'RELEASE\.2023-07-21T20-44-27Z'
+    WinSW = Test-DatongExecutableProbe -Path $runtimeFiles.WinSW -Arguments @('version') -ExpectedPattern '2\.12\.0'
+    VisualCppRuntimeInstaller = [pscustomobject]@{ Path = $runtimeFiles.VisualCppRuntimeInstaller; Exists = (Test-Path $runtimeFiles.VisualCppRuntimeInstaller -PathType Leaf); Passed = (Test-Path $runtimeFiles.VisualCppRuntimeInstaller -PathType Leaf); Output = 'hash verified at package build'; ExitCode = 0 }
+}
+foreach ($runtimeName in @('Java','MySql','Minio','MinioClient','WinSW')) {
+    if ($runtime[$runtimeName].Exists -and -not $runtime[$runtimeName].Passed) {
+        if ($runtimeName -eq 'MySql') {
+            $warnings += 'MySQL探针将在阶段03安装Visual C++运行库后再次执行。'
+        } else {
+            $blockers += "运行组件探针失败：$runtimeName，输出：$($runtime[$runtimeName].Output)"
+            if (-not $stopComponent) { $stopComponent = 'RUNTIME' }
+        }
+    }
 }
 
 $report = [ordered]@{

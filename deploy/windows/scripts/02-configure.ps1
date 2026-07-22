@@ -31,6 +31,13 @@ if ($UseBundledMySql -and (Test-Path $settingsPath)) {
     Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 2 -StageName '自动生成配置与证书' -Component 'EXISTING-CONFIG' -Status 'RUNNING' -StartedAt $startedAt)
     $existingSettings = Get-DatongReusableProjectSettings (Read-DatongJson $settingsPath) $packageRoot
     if ($existingSettings -and (Test-Path $existingSettings.CertificatePath)) {
+        if (-not $existingSettings.PSObject.Properties['CertificateThumbprint'] -and $existingSettings.PSObject.Properties['ClientCertificatePath'] -and (Test-Path $existingSettings.ClientCertificatePath)) {
+            $existingCertificate = New-Object Security.Cryptography.X509Certificates.X509Certificate2($existingSettings.ClientCertificatePath)
+            $existingSettings | Add-Member -NotePropertyName CertificateThumbprint -NotePropertyValue $existingCertificate.Thumbprint
+        }
+        if ($existingSettings.PSObject.Properties['CertificateThumbprint'] -and $existingSettings.CertificateThumbprint) {
+            Set-Content (Join-Path $certDir 'certificate-thumbprint.txt') ([string]$existingSettings.CertificateThumbprint) -Encoding ASCII
+        }
         Save-DatongJson $settingsPath $existingSettings
         Set-DatongPrivateAcl $configDir
         Set-Content (Join-Path $configDir 'stage-02.complete') (Get-Date).ToString('o') -Encoding ASCII
@@ -74,21 +81,65 @@ Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeplo
 $certPassword = New-DatongSecret 24
 $serverPfx = Join-Path $certDir 'datong-map.pfx'
 $clientCer = Join-Path $certDir 'datong-map.cer'
+$certificateThumbprint = ''
 if ($PfxPath) {
     if (-not (Test-Path $PfxPath)) { throw "证书文件不存在：$PfxPath" }
     Copy-Item $PfxPath $serverPfx -Force
     $securePfxPassword = Read-Host '请输入PFX证书密码' -AsSecureString
-    $certPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePfxPassword))
+    $passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePfxPassword)
+    try { $certPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPointer) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPointer) }
+    $certificate = Import-PfxCertificate -FilePath $serverPfx -CertStoreLocation 'Cert:\LocalMachine\My' -Password $securePfxPassword -Exportable | Select-Object -First 1
+    if (-not $certificate) { throw 'PFX证书导入失败。' }
+    $certificateThumbprint = $certificate.Thumbprint
+    Export-Certificate -Cert $certificate -FilePath $clientCer | Out-Null
 } else {
     Write-Host "正在为 $ServerName 生成局域网证书。"
     $ipv4 = @(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notmatch '^127\.' } | Select-Object -ExpandProperty IPAddress -Unique)
-    $san = @("dns=$ServerName") + @($ipv4 | ForEach-Object { "ipaddress=$_" })
-    $sanExtension = '2.5.29.17={text}' + ($san -join '&')
-    $certificate = New-SelfSignedCertificate -Subject "CN=$ServerName" -TextExtension @($sanExtension) -CertStoreLocation 'Cert:\LocalMachine\My' -KeyExportPolicy Exportable -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256 -NotAfter (Get-Date).AddYears(5)
+    $requestInf = Join-Path $certDir 'datong-map-request.inf'
+    $sanLines = @('2.5.29.17 = "{text}"', ('_continue_ = "dns=' + $ServerName + '&"'))
+    foreach ($address in $ipv4) { $sanLines += ('_continue_ = "ipaddress=' + $address + '&"') }
+    $requestText = @"
+[Version]
+Signature="`$Windows NT`$"
+
+[NewRequest]
+Subject = "CN=$ServerName"
+Exportable = TRUE
+KeyLength = 2048
+KeySpec = 1
+KeyUsage = 0xa0
+MachineKeySet = TRUE
+ProviderName = "Microsoft Enhanced RSA and AES Cryptographic Provider"
+ProviderType = 24
+RequestType = Cert
+HashAlgorithm = sha256
+ValidityPeriod = Years
+ValidityPeriodUnits = 5
+
+[Extensions]
+$($sanLines -join "`r`n")
+
+[EnhancedKeyUsageExtension]
+OID=1.3.6.1.5.5.7.3.1
+"@
+    $requestText | Set-Content $requestInf -Encoding ASCII
+    Remove-Item $clientCer -Force -ErrorAction SilentlyContinue
+    & certreq.exe -new -q $requestInf $clientCer | Out-Null
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $clientCer)) { throw '局域网HTTPS证书生成失败。' }
+    $generatedCertificate = New-Object Security.Cryptography.X509Certificates.X509Certificate2($clientCer)
+    $certificateThumbprint = $generatedCertificate.Thumbprint
+    $certificateStorePath = "Cert:\LocalMachine\My\$certificateThumbprint"
+    if (-not (Test-Path $certificateStorePath)) {
+        & certreq.exe -accept -q $clientCer | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw '局域网HTTPS证书写入计算机证书库失败。' }
+    }
+    $certificate = Get-Item $certificateStorePath -ErrorAction Stop
     $securePfxPassword = ConvertTo-SecureString $certPassword -AsPlainText -Force
     Export-PfxCertificate -Cert $certificate -FilePath $serverPfx -Password $securePfxPassword | Out-Null
-    Export-Certificate -Cert $certificate -FilePath $clientCer | Out-Null
+    Remove-Item $requestInf -Force -ErrorAction SilentlyContinue
 }
+if ($certificateThumbprint) { Set-Content (Join-Path $certDir 'certificate-thumbprint.txt') $certificateThumbprint -Encoding ASCII }
 
 $settings = [ordered]@{
     PackageRoot = $packageRoot
@@ -109,6 +160,7 @@ $settings = [ordered]@{
     CertificatePath = $serverPfx
     CertificatePassword = $certPassword
     ClientCertificatePath = $clientCer
+    CertificateThumbprint = $certificateThumbprint
     BackupRoot = $backupRoot
     CreatedAt = (Get-Date).ToString('o')
 }

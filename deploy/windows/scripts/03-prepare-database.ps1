@@ -31,6 +31,8 @@ if ($settings.MySqlMode -eq 'Bundled') {
     if (-not (Test-Path $vcRuntime)) { throw '完整离线包缺少Microsoft Visual C++运行库安装程序。' }
     $vcProcess = Start-Process -FilePath $vcRuntime -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru
     if ($vcProcess.ExitCode -notin @(0, 1638, 3010)) { throw "Microsoft Visual C++运行库安装失败，退出代码：$($vcProcess.ExitCode)" }
+    $mysqlProbe = Test-DatongExecutableProbe -Path $mysqld -Arguments @('--version') -ExpectedPattern '8\.0\.28'
+    if (-not $mysqlProbe.Passed) { throw "MySQL 8.0.28运行探针失败：$($mysqlProbe.Output)" }
     Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 3 -StageName '安装项目独立MySQL' -Component 'MYSQL-INIT' -Status 'RUNNING' -StartedAt $startedAt)
     $mysqlData = Join-Path $DataRoot 'mysql\data'
     $mysqlConfig = Join-Path $DataRoot 'mysql\my.ini'
@@ -96,6 +98,17 @@ if ($decision.Action -eq 'Upgrade') {
     New-Item -ItemType Directory -Force -Path $preUpgrade | Out-Null
     & $mysqldump --protocol=tcp --host=127.0.0.1 "--port=$($settings.MySqlPort)" "--user=$AdministratorUser" --single-transaction --no-tablespaces $settings.MySqlDatabase | Set-Content (Join-Path $preUpgrade 'mysql.sql') -Encoding UTF8
     if ($LASTEXITCODE -ne 0) { $env:MYSQL_PWD = $null; throw '升级前数据库备份失败。' }
+    $mc = Join-Path $packageRoot 'runtime\minio\mc.exe'
+    $minioBackup = Join-Path $preUpgrade 'minio'
+    New-Item -ItemType Directory -Force -Path $minioBackup | Out-Null
+    $mcConfig = Join-Path $env:TEMP ('datong-mc-upgrade-' + [guid]::NewGuid().ToString('N'))
+    try {
+        & $mc --config-dir $mcConfig alias set local http://127.0.0.1:9011 $settings.MinioAccessKey $settings.MinioSecretKey | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw '升级前MinIO连接失败。' }
+        & $mc --config-dir $mcConfig mirror local/datong-map $minioBackup | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw '升级前MinIO数据备份失败。' }
+    } finally { Remove-Item $mcConfig -Recurse -Force -ErrorAction SilentlyContinue }
+    Save-DatongJson (Join-Path $preUpgrade 'manifest.json') ([ordered]@{ CreatedAt = (Get-Date).ToString('o'); Database = $settings.MySqlDatabase; Includes = @('mysql.sql','minio') })
 }
 
 $sql = @"

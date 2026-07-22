@@ -6,6 +6,7 @@ $settings = Read-DatongJson (Join-Path $DataRoot 'config\deployment-settings.jso
 Get-Service $settings.MySqlServiceName, 'DatongMapMinIO', 'DatongMapBackend' -ErrorAction SilentlyContinue | Format-Table Name, Status, StartType -AutoSize
 $oldCallback = [Net.ServicePointManager]::ServerCertificateValidationCallback
 try {
+    Enable-DatongTls12
     [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
     $health = Invoke-WebRequest -UseBasicParsing -Uri "https://127.0.0.1:$($settings.ServerPort)/actuator/health" -TimeoutSec 5
     Write-Host "健康检查：HTTP $($health.StatusCode)" -ForegroundColor Green

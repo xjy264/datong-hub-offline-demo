@@ -76,11 +76,11 @@ class MapDocumentServiceTest {
         jdbc.update("INSERT INTO station_image VALUES ('overview-1', 'xinzhou', NULL, '总图.png', 'image/png', 8, 'test', 'overview.png', CURRENT_TIMESTAMP)");
         jdbc.update("INSERT INTO station_image VALUES ('folder-image-1', 'xinzhou', 'folder-1', '目录图.png', 'image/png', 8, 'test', 'folder.png', CURRENT_TIMESTAMP)");
 
-        var station = service.detail("default-map").stations().getFirst();
+        var station = service.detail("default-map").stations().get(0);
 
         assertThat(station.overviewImages()).extracting(image -> image.name()).containsExactly("总图.png");
         assertThat(station.folders()).hasSize(1);
-        assertThat(station.folders().getFirst().images()).extracting(image -> image.name()).containsExactly("目录图.png");
+        assertThat(station.folders().get(0).images()).extracting(image -> image.name()).containsExactly("目录图.png");
     }
 
     @Test

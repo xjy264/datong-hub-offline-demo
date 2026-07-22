@@ -83,7 +83,7 @@ public class WorkshopService {
                 """, (rs, rowNum) -> new WorkshopView(
                 rs.getLong("id"), rs.getString("code"), rs.getString("name"), rs.getString("color"), rs.getInt("sort_order")), id);
         if (matches.isEmpty()) throw new BusinessException("车间不存在");
-        return matches.getFirst();
+        return matches.get(0);
     }
 
     private String trimToNull(String value) {

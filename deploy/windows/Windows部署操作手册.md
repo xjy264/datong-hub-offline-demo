@@ -1,8 +1,10 @@
 # 大同示意图 Windows 部署操作手册
 
+> 包版本：2026.07.22.1；兼容状态：Windows 11 实机通过、Server 2012 R2 兼容候选。
+
 ## 一、部署前准备
 
-使用文件 `datong-map-windows-offline.zip`。服务器要求Windows Server 2019/2022 x64、至少4GB内存、建议8GB以上、系统盘至少20GB可用空间。部署包会安装项目独立MySQL，服务器原有MySQL保持原状。
+使用文件 `datong-map-windows-offline.zip`。服务器要求Windows Server 2012 R2（版本6.3）或更高版本x64、PowerShell 4.0或更高、至少4GB内存、建议8GB以上、系统盘至少20GB可用空间。部署包会安装项目独立MySQL，服务器原有MySQL保持原状。
 
 将ZIP复制到服务器后校验随包SHA-256清单，再解压到：
 
@@ -105,10 +107,10 @@ C:\DatongMap\scripts\uninstall.ps1
 服务器原有MySQL服务保持原状。彻底清理项目数据需要明确执行：
 
 ```powershell
-C:\DatongMap\scripts\uninstall.ps1 -RemoveData
+C:\DatongMap\scripts\uninstall.ps1 -RemoveData -RemoveCertificates
 ```
 
-执行彻底清理前先确认备份已复制到其他磁盘。
+`-RemoveCertificates` 只按部署配置中记录的 Thumbprint 清理本项目证书。执行彻底清理前先确认备份已复制到其他磁盘。
 
 ## 七、成功标志
 

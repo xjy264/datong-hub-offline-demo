@@ -33,6 +33,11 @@ try {
 
     if (Get-Command Get-ComputerInfo -ErrorAction SilentlyContinue) {
         Get-ComputerInfo | Select-Object WindowsProductName, WindowsVersion, OsBuildNumber, OsArchitecture, CsTotalPhysicalMemory | Format-List | Out-File (Join-Path $work 'computer.txt') -Encoding UTF8
+    } elseif (Get-Command Get-CimInstance -ErrorAction SilentlyContinue) {
+        $os = Get-CimInstance Win32_OperatingSystem
+        $computer = Get-CimInstance Win32_ComputerSystem
+        $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($env:SystemDrive)'"
+        [pscustomobject]@{ Caption = $os.Caption; Version = $os.Version; Architecture = $os.OSArchitecture; TotalPhysicalMemory = $computer.TotalPhysicalMemory; SystemDriveFreeSpace = $drive.FreeSpace; PowerShellVersion = $PSVersionTable.PSVersion.ToString() } | Format-List | Out-File (Join-Path $work 'computer.txt') -Encoding UTF8
     } else {
         Write-SafeText (Join-Path $work 'computer.txt') ([Environment]::OSVersion.VersionString)
     }
@@ -53,6 +58,15 @@ try {
         Write-SafeText (Join-Path $work 'ports.txt') '当前系统不支持Windows端口查询。'
     }
 
+    if ($env:OS -eq 'Windows_NT') {
+        & schtasks.exe /Query /TN 'DatongMap-DailyBackup' /V /FO LIST 2>&1 | Out-File (Join-Path $work 'scheduled-task.txt') -Encoding UTF8
+    }
+    if (Get-Command Get-NetFirewallRule -ErrorAction SilentlyContinue) {
+        Get-NetFirewallRule -DisplayName 'DatongMap-HTTPS-8012' -ErrorAction SilentlyContinue | Format-List * | Out-File (Join-Path $work 'firewall.txt') -Encoding UTF8
+    }
+    $certificateThumbprint = if ($settings -and $settings.PSObject.Properties['CertificateThumbprint']) { [string]$settings.CertificateThumbprint } else { '' }
+    Write-SafeText (Join-Path $work 'certificate.txt') ("CertificateThumbprint=" + $certificateThumbprint)
+
     $reports = Join-Path $PackageRoot 'reports'
     if (Test-Path $reports) {
         Get-ChildItem $reports -File | ForEach-Object {
@@ -69,7 +83,7 @@ try {
         }
     }
 
-    Compress-Archive -Path (Join-Path $work '*') -DestinationPath $zip -Force
+    New-DatongZip -SourceDirectory $work -DestinationPath $zip
 } finally {
     Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 }

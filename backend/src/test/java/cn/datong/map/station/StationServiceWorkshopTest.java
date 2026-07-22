@@ -53,7 +53,7 @@ class StationServiceWorkshopTest {
 
     @Test
     void stationViewsExposeNumericWorkshopIdFromLegacyCode() {
-        assertThat(stations.listStations().getFirst().workshopId()).isEqualTo(1L);
+        assertThat(stations.listStations().get(0).workshopId()).isEqualTo(1L);
     }
 
     @Test
@@ -61,28 +61,28 @@ class StationServiceWorkshopTest {
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 2L));
 
         assertThat(jdbc.queryForObject("SELECT workshop_id FROM station_profile WHERE station_id = 'station-1'", String.class)).isEqualTo("middle");
-        assertThat(stations.listStations().getFirst().workshopId()).isEqualTo(2L);
+        assertThat(stations.listStations().get(0).workshopId()).isEqualTo(2L);
     }
 
     @Test
     void updateProfileTrimsAndStoresMileage() {
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, null, " K123+456 "));
 
-        assertThat(stations.listStations().getFirst().mileage()).isEqualTo("K123+456");
+        assertThat(stations.listStations().get(0).mileage()).isEqualTo("K123+456");
     }
 
     @Test
     void updateProfileCanClearMileage() {
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, null, "   "));
 
-        assertThat(stations.listStations().getFirst().mileage()).isEmpty();
+        assertThat(stations.listStations().get(0).mileage()).isEmpty();
     }
 
     @Test
     void legacyProfileRequestKeepsMileage() {
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L));
 
-        assertThat(stations.listStations().getFirst().mileage()).isEqualTo("261.396");
+        assertThat(stations.listStations().get(0).mileage()).isEqualTo("261.396");
     }
 
     @Test
@@ -96,13 +96,13 @@ class StationServiceWorkshopTest {
     void updateProfileCanChangeStationColorWhenProvided() {
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, "blue"));
 
-        StationDtos.StationView blue = stations.listStations().getFirst();
+        StationDtos.StationView blue = stations.listStations().get(0);
         assertThat(blue.color()).isEqualTo("blue");
         assertThat(blue.type()).isEqualTo("已撤站");
 
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 1L, "red"));
 
-        StationDtos.StationView red = stations.listStations().getFirst();
+        StationDtos.StationView red = stations.listStations().get(0);
         assertThat(red.color()).isEqualTo("red");
         assertThat(red.type()).isEqualTo("车站");
     }
@@ -111,7 +111,7 @@ class StationServiceWorkshopTest {
     void updateProfileWithoutColorKeepsStationColor() {
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", 2L));
 
-        StationDtos.StationView station = stations.listStations().getFirst();
+        StationDtos.StationView station = stations.listStations().get(0);
         assertThat(station.color()).isEqualTo("red");
         assertThat(station.type()).isEqualTo("车站");
     }
@@ -120,7 +120,7 @@ class StationServiceWorkshopTest {
     void blankWorkshopKeepsStationDefaultWorkshop() {
         stations.updateProfile("station-1", new ProfileRequest("红进塔", "", null));
 
-        assertThat(stations.listStations().getFirst().workshopId()).isEqualTo(1L);
+        assertThat(stations.listStations().get(0).workshopId()).isEqualTo(1L);
     }
 
     @Test
@@ -184,11 +184,11 @@ class StationServiceWorkshopTest {
         });
 
         assertThat(uploaded).hasSize(1);
-        assertThat(jdbc.queryForObject("SELECT folder_id FROM station_image WHERE id = ?", String.class, uploaded.getFirst().id())).isNull();
+        assertThat(jdbc.queryForObject("SELECT folder_id FROM station_image WHERE id = ?", String.class, uploaded.get(0).id())).isNull();
         assertThat(storage.lastObjectName).contains("stations/station-1/overview/");
-        assertThat(stations.listStations().getFirst().overviewImages()).extracting(StationDtos.StationImageView::name)
+        assertThat(stations.listStations().get(0).overviewImages()).extracting(StationDtos.StationImageView::name)
                 .containsExactly("overview.png");
-        assertThat(stations.listStations().getFirst().folders()).isEmpty();
+        assertThat(stations.listStations().get(0).folders()).isEmpty();
     }
 
     @Test
@@ -197,7 +197,7 @@ class StationServiceWorkshopTest {
                 new MockMultipartFile("files", "overview.png", "image/png", new byte[]{(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a})
         });
 
-        stations.deleteImage(uploaded.getFirst().id());
+        stations.deleteImage(uploaded.get(0).id());
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM station_image", Integer.class)).isZero();
         assertThat(storage.removed).containsExactly("test/" + storage.lastObjectName);
@@ -267,7 +267,7 @@ class StationServiceWorkshopTest {
     void renamesWorkshop() {
         workshops.renameWorkshop(1L, "北部检修车间");
 
-        assertThat(workshops.listWorkshops().getFirst().name()).isEqualTo("北部检修车间");
+        assertThat(workshops.listWorkshops().get(0).name()).isEqualTo("北部检修车间");
     }
 
     @Test
@@ -284,7 +284,7 @@ class StationServiceWorkshopTest {
         workshops.deleteWorkshop(1L);
 
         assertThat(workshops.listWorkshops()).extracting(WorkshopView::id).doesNotContain(1L);
-        assertThat(stations.listStations().getFirst().workshopId()).isNull();
+        assertThat(stations.listStations().get(0).workshopId()).isNull();
     }
 
     @Test

@@ -31,6 +31,57 @@ function Test-DatongMySqlVersion([string]$Version) {
     return [int]$Matches[1] -eq 8
 }
 
+function Test-DatongWindowsCompatibility([version]$Version) {
+    return $Version -ge [version]'6.3'
+}
+
+function Test-DatongPowerShellCompatibility([version]$Version) {
+    return $Version -ge [version]'4.0'
+}
+
+function Enable-DatongTls12 {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+}
+
+function Test-DatongExecutableProbe {
+    param(
+        [string]$Path,
+        [string[]]$Arguments = @(),
+        [string]$ExpectedPattern = '.'
+    )
+    if (-not (Test-Path $Path -PathType Leaf)) {
+        return [pscustomobject]@{ Path = $Path; Exists = $false; Passed = $false; Output = ''; ExitCode = -1 }
+    }
+    $output = ''
+    $exitCode = -1
+    try {
+        $output = (& $Path @Arguments 2>&1 | Out-String).Trim()
+        $exitCode = $LASTEXITCODE
+    } catch {
+        $output = $_.Exception.Message
+    }
+    return [pscustomobject]@{
+        Path = $Path
+        Exists = $true
+        Passed = ($exitCode -eq 0 -and $output -match $ExpectedPattern)
+        Output = $output
+        ExitCode = $exitCode
+    }
+}
+
+function New-DatongZip {
+    param(
+        [Parameter(Mandatory=$true)][string]$SourceDirectory,
+        [Parameter(Mandatory=$true)][string]$DestinationPath
+    )
+    if (-not (Test-Path $SourceDirectory -PathType Container)) { throw "ZIP源目录不存在：$SourceDirectory" }
+    $parent = Split-Path $DestinationPath -Parent
+    if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+    Remove-Item $DestinationPath -Force -ErrorAction SilentlyContinue
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::CreateFromDirectory($SourceDirectory, $DestinationPath, [IO.Compression.CompressionLevel]::Optimal, $false)
+}
+
 function Get-DatongExecutablePath([string]$PathName) {
     if ([string]::IsNullOrWhiteSpace($PathName)) { return $null }
     if ($PathName -match '^"([^"]+)"') { return $Matches[1] }
@@ -108,6 +159,9 @@ function Get-DatongReusableProjectSettings($ExistingSettings, [string]$PackageRo
     $copy = $ExistingSettings.PSObject.Copy()
     if ($copy.PSObject.Properties['PackageRoot']) { $copy.PackageRoot = $PackageRoot }
     else { $copy | Add-Member -NotePropertyName PackageRoot -NotePropertyValue $PackageRoot }
+    $mysqlExecutable = $PackageRoot.TrimEnd('\') + '\runtime\mysql\bin\mysqld.exe'
+    if ($copy.PSObject.Properties['MySqlExecutable']) { $copy.MySqlExecutable = $mysqlExecutable }
+    else { $copy | Add-Member -NotePropertyName MySqlExecutable -NotePropertyValue $mysqlExecutable }
     if ($copy.PSObject.Properties['UpdatedAt']) { $copy.UpdatedAt = (Get-Date).ToString('o') }
     else { $copy | Add-Member -NotePropertyName UpdatedAt -NotePropertyValue (Get-Date).ToString('o') }
     return $copy
@@ -253,4 +307,4 @@ function Resolve-DatongPackageRoot([string]$ScriptRoot) {
     return (Resolve-Path (Join-Path $ScriptRoot '..')).Path
 }
 
-Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, Get-DatongBundledMySqlPort, Get-DatongReusableProjectSettings, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, New-DatongDeploymentState, Save-DatongJson, Read-DatongJson, Write-DatongReport, Write-DatongDeploymentProgress, Set-DatongPrivateAcl, Resolve-DatongPackageRoot
+Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Test-DatongWindowsCompatibility, Test-DatongPowerShellCompatibility, Enable-DatongTls12, Test-DatongExecutableProbe, New-DatongZip, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, Get-DatongBundledMySqlPort, Get-DatongReusableProjectSettings, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, New-DatongDeploymentState, Save-DatongJson, Read-DatongJson, Write-DatongReport, Write-DatongDeploymentProgress, Set-DatongPrivateAcl, Resolve-DatongPackageRoot

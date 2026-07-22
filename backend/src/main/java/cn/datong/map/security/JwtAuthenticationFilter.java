@@ -37,7 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         WHERE id = ? AND deleted = 0 AND status = 'ENABLED' AND approval_status = 'APPROVED'
                         """, (rs, rowNum) -> new CurrentUser(rs.getLong("id")), userId);
                 if (!users.isEmpty()) {
-                    CurrentUser user = users.getFirst();
+                    CurrentUser user = users.get(0);
                     List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_EDITOR"));
                     SecurityContextHolder.getContext().setAuthentication(
                             new UsernamePasswordAuthenticationToken(user, null, authorities));

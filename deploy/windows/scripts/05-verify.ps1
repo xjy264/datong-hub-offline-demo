@@ -16,6 +16,7 @@ $deadline = (Get-Date).AddMinutes(2)
 $health = $null
 $oldCallback = [Net.ServicePointManager]::ServerCertificateValidationCallback
 try {
+    Enable-DatongTls12
     Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'HEALTH' -Status 'RUNNING' -StartedAt $startedAt)
     [Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
     do {

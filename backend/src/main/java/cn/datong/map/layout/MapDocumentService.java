@@ -218,10 +218,10 @@ public class MapDocumentService {
                 """, (rs, rowNum) -> new MarkerView(
                 rs.getString("id"), rs.getString("map_id"), rs.getDouble("position_x"), rs.getDouble("position_y"),
                 rs.getDouble("size"), stations.get(rs.getString("station_id"))), markerId, mapId);
-        if (markers.isEmpty() || markers.getFirst().station() == null) {
+        if (markers.isEmpty() || markers.get(0).station() == null) {
             throw new BusinessException("站点组件不存在");
         }
-        return markers.getFirst();
+        return markers.get(0);
     }
 
     private List<IntervalView> intervals(String mapId) {
@@ -243,7 +243,7 @@ public class MapDocumentService {
                 rs.getString("base_stations").lines().toList(), rs.getDouble("position_x"), rs.getDouble("position_y"),
                 rs.getDouble("interval_length"), rs.getDouble("direction_angle")), intervalId, mapId);
         if (matches.isEmpty()) throw new BusinessException("车站区间不存在");
-        return matches.getFirst();
+        return matches.get(0);
     }
 
     private String normalizeMarkerId(String markerId) {
@@ -267,7 +267,7 @@ public class MapDocumentService {
         if (maps.isEmpty()) {
             throw new BusinessException("地图不存在");
         }
-        return maps.getFirst();
+        return maps.get(0);
     }
 
     private void removeObject(String bucket, String objectName) {
@@ -299,7 +299,7 @@ public class MapDocumentService {
         if (maps.isEmpty()) {
             throw new BusinessException("地图不存在");
         }
-        return maps.getFirst();
+        return maps.get(0);
     }
 
     private void requireStation(String stationId) {

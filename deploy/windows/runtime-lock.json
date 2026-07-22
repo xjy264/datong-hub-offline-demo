@@ -3,50 +3,50 @@
   "components": [
     {
       "name": "Eclipse Temurin JRE",
-      "version": "21.0.11+10",
-      "fileName": "OpenJDK21U-jre_x64_windows_hotspot_21.0.11_10.zip",
-      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.11%2B10/OpenJDK21U-jre_x64_windows_hotspot_21.0.11_10.zip",
-      "sha256": "be26677aaa20b39a62edcaab4c8857a8b76673b0f45abc0b6143b142b62717e4",
+      "version": "17.0.8.1+1",
+      "fileName": "OpenJDK17U-jre_x64_windows_hotspot_17.0.8.1_1.zip",
+      "url": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.8.1%2B1/OpenJDK17U-jre_x64_windows_hotspot_17.0.8.1_1.zip",
+      "sha256": "a43a96a10c8bd531b7fadd2f3dcf5b839c81c79affcfba0141f1e8b4ffefe521",
       "target": "java"
     },
     {
       "name": "MySQL Community Server",
-      "version": "8.0.46",
-      "fileName": "mysql-8.0.46-winx64.zip",
-      "url": "https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.46-winx64.zip",
-      "sha256": "28e9eda019d88eff4478d811ea2110b83f02a3966be157fe91cc55def3ab0d4d",
+      "version": "8.0.28",
+      "fileName": "mysql-8.0.28-winx64.zip",
+      "url": "https://cdn.mysql.com/archives/mysql-8.0/mysql-8.0.28-winx64.zip",
+      "sha256": "cb207afb33e2bbfe9535ba78fa9a1a3cccd11156f73864a5db0be8dcc2dbb1bc",
       "target": "mysql"
     },
     {
       "name": "MinIO Server",
-      "version": "RELEASE.2024-10-13T13-34-11Z",
-      "fileName": "minio.RELEASE.2024-10-13T13-34-11Z.exe",
-      "url": "https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-10-13T13-34-11Z",
-      "sha256": "93e8cf38fdbe6d9c3e860bb6b0573731fc5439fd22a3db667116d98284845b4f",
+      "version": "RELEASE.2023-07-21T21-12-44Z",
+      "fileName": "minio.RELEASE.2023-07-21T21-12-44Z.exe",
+      "url": "https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2023-07-21T21-12-44Z",
+      "sha256": "87cf45c8b7f1ba0c874d8327de25fdc1e06d35e1fe5312937baf663e91d78c90",
       "target": "minio/minio.exe"
     },
     {
       "name": "MinIO Client",
-      "version": "RELEASE.2024-10-08T09-37-26Z",
-      "fileName": "mc.RELEASE.2024-10-08T09-37-26Z.exe",
-      "url": "https://dl.min.io/client/mc/release/windows-amd64/archive/mc.RELEASE.2024-10-08T09-37-26Z",
-      "sha256": "a4c828dc70169d883ff363546c623609e4c6711ab93e9d50c97f21b03ccad1aa",
+      "version": "RELEASE.2023-07-21T20-44-27Z",
+      "fileName": "mc.RELEASE.2023-07-21T20-44-27Z.exe",
+      "url": "https://dl.min.io/client/mc/release/windows-amd64/archive/mc.RELEASE.2023-07-21T20-44-27Z",
+      "sha256": "a4ca1d0a4a5bed36095248b587965ae81efcfb209903d727024bf3c538fc2645",
       "target": "minio/mc.exe"
     },
     {
       "name": "WinSW",
-      "version": "2.12.0",
-      "fileName": "WinSW-x64.exe",
-      "url": "https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW-x64.exe",
-      "sha256": "05b82d46ad331cc16bdc00de5c6332c1ef818df8ceefcd49c726553209b3a0da",
+      "version": "2.12.0-net4",
+      "fileName": "WinSW.NET4.exe",
+      "url": "https://github.com/winsw/winsw/releases/download/v2.12.0/WinSW.NET4.exe",
+      "sha256": "923111c7142b3dc783a3c722b19b8a21bcb78222d7a136ac33f0ca8a29f4cb66",
       "target": "winsw/WinSW-x64.exe"
     },
     {
-      "name": "Microsoft Visual C++ Redistributable",
-      "version": "VS2022-2026-07-16",
+      "name": "Microsoft Visual C++ 2019 Redistributable",
+      "version": "14.29.30157",
       "fileName": "vc_redist.x64.exe",
-      "url": "https://download.visualstudio.microsoft.com/download/pr/65f6a2c9-1b34-43ef-8a5d-4bbdd407197a/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe",
-      "sha256": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/453680ea-b88a-411f-80fd-5db37fdc9dbb/5D9999036F2B3A930F83B7FE3E2186B12E79AE7C007D538F52E3582E986A37C3/VC_redist.x64.exe",
+      "sha256": "5d9999036f2b3a930f83b7fe3e2186b12e79ae7c007d538f52e3582e986a37c3",
       "target": "prerequisites/vc_redist.x64.exe"
     }
   ]

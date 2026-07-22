@@ -1,10 +1,12 @@
 # 大同示意图 Windows 一键部署教程
 
 > 适用对象：第一次接触服务器部署的现场人员。部署过程中只需要解压、双击和确认一次管理员权限。
+>
+> 包版本：2026.07.22.1；兼容状态：Windows 11 实机通过、Server 2012 R2 兼容候选。
 
 ## 一、部署前准备
 
-1. 准备 Windows Server 2019 或 Windows Server 2022 x64 服务器。
+1. 准备 Windows Server 2012 R2（系统版本 6.3）或更高版本的 x64 服务器，PowerShell 至少为 4.0。
 2. 确认系统盘至少有 20GB 可用空间，内存至少 4GB、建议 8GB。
 3. 把 `datong-map-windows-offline.zip` 复制到服务器。
 4. 在 `C:` 盘新建文件夹 `C:\DatongMap`。
