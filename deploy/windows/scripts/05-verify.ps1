@@ -25,8 +25,8 @@ try {
     } while (-not $health -and (Get-Date) -lt $deadline)
     if ($health) {
         Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'FRONTEND' -Status 'RUNNING' -StartedAt $startedAt)
-        $home = Invoke-WebRequest -UseBasicParsing -Uri "https://127.0.0.1:$($settings.ServerPort)/" -TimeoutSec 10
-    } else { $home = $null }
+        $homeResponse = Invoke-WebRequest -UseBasicParsing -Uri "https://127.0.0.1:$($settings.ServerPort)/" -TimeoutSec 10
+    } else { $homeResponse = $null }
 } finally {
     [Net.ServicePointManager]::ServerCertificateValidationCallback = $oldCallback
 }
@@ -39,7 +39,7 @@ $failureComponent = ''
 $stoppedServices = @($services | Where-Object { $_.State -ne 'Running' })
 if ($stoppedServices.Count -gt 0) { $problems += ('未运行的项目服务：' + (($stoppedServices | ForEach-Object { "$($_.Name)=$($_.State)" }) -join '，')); if (-not $failureComponent) { $failureComponent = 'SERVICES' } }
 if (-not $health -or $health.StatusCode -ne 200) { $problems += '后端健康检查未通过。'; if (-not $failureComponent) { $failureComponent = 'HEALTH' } }
-if (-not $home -or $home.Content -notmatch '<div id="app">') { $problems += '前端首页未正确返回。'; if (-not $failureComponent) { $failureComponent = 'FRONTEND' } }
+if (-not $homeResponse -or $homeResponse.Content -notmatch '<div id="app">') { $problems += '前端首页未正确返回。'; if (-not $failureComponent) { $failureComponent = 'FRONTEND' } }
 if (@($ports | Where-Object { $_.Port -in @(9011,9012) -and $_.Address -notin @('127.0.0.1','::1') }).Count -gt 0) {
     $problems += '内部端口存在非本机监听，请交给远程技术人员检查。'
     if (-not $failureComponent) { $failureComponent = 'PORTS' }
@@ -55,7 +55,7 @@ $report = [ordered]@{
     Services = $services
     Ports = $ports
     HealthStatus = if ($health) { $health.StatusCode } else { 0 }
-    FrontendStatus = if ($home) { $home.StatusCode } else { 0 }
+    FrontendStatus = if ($homeResponse) { $homeResponse.StatusCode } else { 0 }
     Problems = $problems
     Warnings = $warnings
     Result = if ($problems.Count -eq 0) { 'PASS' } else { 'STOP' }

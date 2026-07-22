@@ -183,6 +183,8 @@ Assert-Contains '& $mysqld --install $settings.MySqlServiceName "--defaults-file
 Assert-Contains 'mirror local/datong-map' $databaseContent 'pre-upgrade backup should include MinIO objects as well as MySQL'
 $verifyContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\05-verify.ps1') -Raw -Encoding UTF8
 Assert-Contains 'Enable-DatongTls12' $verifyContent 'deployment verification should explicitly enable TLS 1.2'
+Assert-Contains '$homeResponse' $verifyContent 'deployment verification should avoid the read-only HOME automatic variable'
+Assert-False ([regex]::IsMatch($verifyContent, '(?im)\$home\b')) 'deployment verification should not assign to the read-only HOME automatic variable'
 $statusContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\status.ps1') -Raw -Encoding UTF8
 Assert-Contains 'Enable-DatongTls12' $statusContent 'status health check should explicitly enable TLS 1.2'
 
