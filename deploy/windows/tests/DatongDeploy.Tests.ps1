@@ -192,6 +192,8 @@ Assert-Contains 'if (Test-Path $settingsPath)' $uninstallContent 'uninstaller sh
 Assert-Contains 'CertificateThumbprint' $uninstallContent 'uninstaller should scope certificate cleanup by recorded thumbprint'
 Assert-Contains 'certificate-thumbprint.txt' $uninstallContent 'uninstaller should clean a certificate from a half-finished configuration stage'
 Assert-Contains "PSObject.Properties['OwnsMySqlService']" $uninstallContent 'uninstaller should tolerate a partially written settings object'
+Assert-Contains 'cmd.exe /D /C' $uninstallContent 'uninstaller should isolate task deletion from PowerShell native stderr handling'
+Assert-Contains 'schtasks.exe /Delete /TN "DatongMap-DailyBackup" /F >nul 2>&1' $uninstallContent 'uninstaller should ignore a missing backup task without raising NativeCommandError'
 $configureContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\02-configure.ps1') -Raw -Encoding UTF8
 Assert-Contains 'CertificateThumbprint' $configureContent 'configuration should record the generated certificate thumbprint'
 Assert-Contains 'certificate-thumbprint.txt' $configureContent 'configuration should persist certificate ownership before later steps can fail'

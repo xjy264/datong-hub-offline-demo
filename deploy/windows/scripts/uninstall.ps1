@@ -30,7 +30,7 @@ if ($ownsMySql -and $hasMySqlDetails -and (Test-Path $settings.MySqlExecutable))
     & sc.exe delete 'DatongMapMySQL' | Out-Null
 }
 Get-NetFirewallRule -DisplayName 'DatongMap-HTTPS-8012' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-& schtasks.exe /Delete /TN 'DatongMap-DailyBackup' /F 2>$null | Out-Null
+& cmd.exe /D /C 'schtasks.exe /Delete /TN "DatongMap-DailyBackup" /F >nul 2>&1' | Out-Null
 if ($RemoveCertificates) {
     $thumbprintPath = Join-Path $DataRoot 'certificate\certificate-thumbprint.txt'
     $thumbprint = if ($settings -and $settings.PSObject.Properties['CertificateThumbprint']) { [string]$settings.CertificateThumbprint } elseif (Test-Path $thumbprintPath) { [string](Get-Content $thumbprintPath -Raw -Encoding ASCII) } else { '' }
