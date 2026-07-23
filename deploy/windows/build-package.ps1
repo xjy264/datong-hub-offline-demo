@@ -3,7 +3,7 @@ param(
     [ValidateSet('Slim','Offline')][string]$Mode = 'Slim',
     [string]$RuntimeCache = (Join-Path ([IO.Path]::GetTempPath()) 'datong-windows-runtime'),
     [string]$RuntimeSeedPackage = '',
-    [string]$PackageVersion = '2026.07.22.2',
+    [string]$PackageVersion = '2026.07.23.1',
     [string]$CompatibilityStatus = 'Windows 11 实机验证中、Server 2012 R2 兼容候选',
     [switch]$SkipBuild
 )
@@ -166,7 +166,7 @@ $manifest = [ordered]@{
     CompatibilityStatus = $CompatibilityStatus
     ApplicationJarSha256 = $jarHash
     Components = @($lock.Components | ForEach-Object { [ordered]@{ Name = $_.Name; Version = $_.Version; Target = $_.Target; Sha256 = $_.Sha256 } })
-    Features = @('50MB图片安全分批上传','Windows一键离线部署','分阶段故障反馈','自动脱敏诊断包')
+    Features = @('50MB图片安全分批上传','Windows一键离线部署','分阶段故障反馈','自动脱敏诊断包','固定可信访问名')
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stageRoot 'package-manifest.json') -Encoding UTF8
 @"
@@ -176,7 +176,7 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stageRoot 'package
 构建时间：$($manifest.BuiltAt)
 兼容状态：$CompatibilityStatus
 最低环境：Windows 6.3、PowerShell 4.0、x64
-包含：7月21日50MB图片上传、一键部署、故障报告、自动诊断包
+包含：7月21日50MB图片上传、一键部署、故障报告、自动诊断包、固定可信访问名
 部署入口：开始部署.cmd
 "@ | Set-Content (Join-Path $stageRoot '版本信息.txt') -Encoding UTF8
 
