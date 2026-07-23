@@ -358,4 +358,25 @@ function Resolve-DatongPackageRoot([string]$ScriptRoot) {
     return (Resolve-Path (Join-Path $ScriptRoot '..')).Path
 }
 
-Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Test-DatongWindowsCompatibility, Test-DatongPowerShellCompatibility, Get-DatongDiskAssessment, Enable-DatongTls12, Invoke-DatongHttpsRequest, Test-DatongExecutableProbe, New-DatongZip, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, Get-DatongBundledMySqlPort, Get-DatongReusableProjectSettings, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, New-DatongDeploymentState, Save-DatongJson, Read-DatongJson, Write-DatongReport, Write-DatongDeploymentProgress, Set-DatongPrivateAcl, Resolve-DatongPackageRoot
+function Remove-DatongHostsEntry {
+    param([string]$HostsPath = "$env:SystemRoot\System32\drivers\etc\hosts")
+    if (-not (Test-Path $HostsPath)) { return }
+    $content = [IO.File]::ReadAllText($HostsPath)
+    $content = [regex]::Replace($content, '(?ms)^# DatongMap BEGIN\r?\n.*?^# DatongMap END\r?\n?', '')
+    [IO.File]::WriteAllText($HostsPath, $content.TrimEnd("`r", "`n") + "`r`n", [Text.Encoding]::ASCII)
+}
+
+function Set-DatongHostsEntry {
+    param(
+        [Parameter(Mandatory = $true)][string]$Address,
+        [Parameter(Mandatory = $true)][string]$HostName,
+        [string]$HostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
+    )
+    Remove-DatongHostsEntry -HostsPath $HostsPath
+    $content = if (Test-Path $HostsPath) { [IO.File]::ReadAllText($HostsPath).TrimEnd("`r", "`n") } else { '' }
+    $block = "# DatongMap BEGIN`r`n$Address $HostName`r`n# DatongMap END"
+    $updated = if ($content) { $content + "`r`n" + $block + "`r`n" } else { $block + "`r`n" }
+    [IO.File]::WriteAllText($HostsPath, $updated, [Text.Encoding]::ASCII)
+}
+
+Export-ModuleMember -Function Write-DatongStage, Test-DatongAdministrator, Get-DatongPortOwner, Test-DatongMySqlVersion, Test-DatongWindowsCompatibility, Test-DatongPowerShellCompatibility, Get-DatongDiskAssessment, Enable-DatongTls12, Invoke-DatongHttpsRequest, Test-DatongExecutableProbe, New-DatongZip, Get-DatongMySqlCandidates, Select-DatongMySqlPlan, Get-DatongBundledMySqlPort, Get-DatongReusableProjectSettings, New-DatongSecret, Get-DatongDatabaseDecision, Get-DatongManagedServices, Protect-DatongDiagnosticText, New-DatongDeploymentState, Save-DatongJson, Read-DatongJson, Write-DatongReport, Write-DatongDeploymentProgress, Set-DatongPrivateAcl, Resolve-DatongPackageRoot, Set-DatongHostsEntry, Remove-DatongHostsEntry

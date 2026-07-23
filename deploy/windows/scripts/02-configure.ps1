@@ -15,6 +15,7 @@ Import-Module (Join-Path $PSScriptRoot 'DatongDeploy.psm1') -Force
 $packageRoot = Resolve-DatongPackageRoot $PSScriptRoot
 $reportPath = Join-Path $packageRoot 'reports\environment-report.json'
 $startedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+$accessHostName = 'datong-hub-offline'
 
 Write-DatongStage '阶段02：确认部署配置'
 Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 2 -StageName '自动生成配置与证书' -Component 'DIRECTORY' -Status 'RUNNING' -StartedAt $startedAt)
@@ -30,7 +31,8 @@ $settingsPath = Join-Path $configDir 'deployment-settings.json'
 if ($UseBundledMySql -and (Test-Path $settingsPath)) {
     Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 2 -StageName '自动生成配置与证书' -Component 'EXISTING-CONFIG' -Status 'RUNNING' -StartedAt $startedAt)
     $existingSettings = Get-DatongReusableProjectSettings (Read-DatongJson $settingsPath) $packageRoot
-    if ($existingSettings -and (Test-Path $existingSettings.CertificatePath)) {
+    $hasFixedHostName = $existingSettings -and $existingSettings.PSObject.Properties['AccessHostName'] -and $existingSettings.AccessHostName -eq $accessHostName
+    if ($hasFixedHostName -and (Test-Path $existingSettings.CertificatePath)) {
         if (-not $existingSettings.PSObject.Properties['CertificateThumbprint'] -and $existingSettings.PSObject.Properties['ClientCertificatePath'] -and (Test-Path $existingSettings.ClientCertificatePath)) {
             $existingCertificate = New-Object Security.Cryptography.X509Certificates.X509Certificate2($existingSettings.ClientCertificatePath)
             $existingSettings | Add-Member -NotePropertyName CertificateThumbprint -NotePropertyValue $existingCertificate.Thumbprint
@@ -94,17 +96,23 @@ if ($PfxPath) {
     $certificateThumbprint = $certificate.Thumbprint
     Export-Certificate -Cert $certificate -FilePath $clientCer | Out-Null
 } else {
-    Write-Host "正在为 $ServerName 生成局域网证书。"
+    Write-Host "正在为 $accessHostName 生成局域网证书。"
     $ipv4 = @(Get-NetIPAddress -AddressFamily IPv4 -AddressState Preferred -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -notmatch '^127\.' } | Select-Object -ExpandProperty IPAddress -Unique)
     $requestInf = Join-Path $certDir 'datong-map-request.inf'
-    $sanLines = @('2.5.29.17 = "{text}"', ('_continue_ = "dns=' + $ServerName + '&"'))
+    $sanLines = @(
+        '2.5.29.17 = "{text}"',
+        '_continue_ = "dns=datong-hub-offline&"',
+        '_continue_ = "dns=localhost&"',
+        '_continue_ = "ipaddress=127.0.0.1&"'
+    )
+    if ($ServerName -notin @($accessHostName, 'localhost')) { $sanLines += ('_continue_ = "dns=' + $ServerName + '&"') }
     foreach ($address in $ipv4) { $sanLines += ('_continue_ = "ipaddress=' + $address + '&"') }
     $requestText = @"
 [Version]
 Signature="`$Windows NT`$"
 
 [NewRequest]
-Subject = "CN=$ServerName"
+Subject = "CN=$accessHostName"
 Exportable = TRUE
 KeyLength = 2048
 KeySpec = 1
@@ -140,11 +148,14 @@ OID=1.3.6.1.5.5.7.3.1
     Remove-Item $requestInf -Force -ErrorAction SilentlyContinue
 }
 if ($certificateThumbprint) { Set-Content (Join-Path $certDir 'certificate-thumbprint.txt') $certificateThumbprint -Encoding ASCII }
+Import-Certificate -FilePath $clientCer -CertStoreLocation 'Cert:\LocalMachine\Root' | Out-Null
+Set-DatongHostsEntry -Address '127.0.0.1' -HostName $accessHostName
 
 $settings = [ordered]@{
     PackageRoot = $packageRoot
     DataRoot = $DataRoot
     ServerName = $ServerName
+    AccessHostName = $accessHostName
     ServerPort = 8012
     MySqlMode = $mode
     MySqlServiceName = if ($selected) { $selected.Name } else { 'DatongMapMySQL' }
