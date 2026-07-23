@@ -168,6 +168,14 @@ try {
 $entryContent = Get-Content (Join-Path $PSScriptRoot '..\开始部署.cmd') -Raw -Encoding UTF8
 Assert-Contains 'scripts\install.ps1' $entryContent 'one-click entry should invoke the unified installer'
 Assert-False ($entryContent -match '(?im)^\s*choice\s') 'one-click entry should not pause between stages'
+$reinstallEntryContent = Get-Content (Join-Path $PSScriptRoot '..\完整重装.cmd') -Raw -Encoding UTF8
+Assert-Contains 'scripts\reinstall.ps1' $reinstallEntryContent 'full reinstall entry should invoke the destructive reinstall workflow'
+$reinstallContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\reinstall.ps1') -Raw -Encoding UTF8
+Assert-Contains 'uninstall.ps1' $reinstallContent 'full reinstall should use the shared uninstaller'
+Assert-Contains '-RemoveData' $reinstallContent 'full reinstall should delete project-owned data'
+Assert-Contains '-RemoveCertificates' $reinstallContent 'full reinstall should delete project certificates'
+Assert-Contains 'install.ps1' $reinstallContent 'full reinstall should continue with a fresh unified installation'
+Assert-Contains "@('DatongMapMySQL','DatongMapMinIO','DatongMapBackend')" $reinstallContent 'full reinstall should verify all project services were removed before installing again'
 $installerContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\install.ps1') -Raw -Encoding UTF8
 foreach ($stageScript in @('01-check-environment.ps1','02-configure.ps1','03-prepare-database.ps1','04-install-services.ps1','05-verify.ps1')) {
     Assert-Contains $stageScript $installerContent "unified installer should run $stageScript"
@@ -264,9 +272,9 @@ Assert-Contains "'*.err'" $diagnosticsContent 'diagnostics should include MySQL 
 $buildContent = Get-Content (Join-Path $PSScriptRoot '..\build-package.ps1') -Raw -Encoding UTF8
 Assert-Contains '[string]$PackageVersion' $buildContent 'package builder should accept an explicit patch version'
 Assert-Contains '[string]$CompatibilityStatus' $buildContent 'package builder should record validation status only after the matching real-machine run'
-Assert-Contains "[string]`$PackageVersion = '2026.07.23.1'" $buildContent 'package builder should default to the fixed-hostname package version'
+Assert-Contains "[string]`$PackageVersion = '2026.07.23.2'" $buildContent 'package builder should default to the full-reinstall package version'
 Assert-Contains '固定可信访问名' $buildContent 'package manifest should advertise the fixed trusted URL'
-foreach ($packageFile in @('Windows一键部署教程.md','Windows一键部署教程.html','package-manifest.json','版本信息.txt')) {
+foreach ($packageFile in @('完整重装.cmd','Windows一键部署教程.md','Windows一键部署教程.html','package-manifest.json','版本信息.txt')) {
     Assert-Contains $packageFile $buildContent "offline package should include $packageFile"
 }
 Assert-Contains "zipPath + '.sha256'" $buildContent 'package builder should emit a ZIP SHA-256 sidecar'

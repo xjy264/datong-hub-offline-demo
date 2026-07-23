@@ -1,14 +1,16 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>大同示意图 Windows 一键部署教程</title>
 <style>body{font:18px/1.75 "Microsoft YaHei",Segoe UI,sans-serif;max-width:980px;margin:0 auto;padding:30px;color:#172033;background:#f3f7fb}h1{color:#075985;font-size:34px}.card{background:#fff;border:1px solid #cbd5e1;border-radius:14px;padding:22px;margin:20px 0;box-shadow:0 4px 14px #0f172a10}.step{border-left:10px solid #0284c7}.pass{border-left:10px solid #16a34a}.stop{border-left:10px solid #dc2626}.num{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;background:#075985;color:white;font-weight:bold;margin-right:10px}code,pre{background:#eaf1f8;border-radius:6px;padding:3px 7px}pre{padding:16px;overflow:auto}.big{font-size:22px;font-weight:bold}.hint{background:#ecfeff;padding:14px;border-radius:8px}</style></head>
-<body><h1>大同示意图 Windows 一键部署教程</h1><p class="hint">版本 2026.07.23.1；Windows 11 实机验证中、Server 2012 R2 兼容候选。最低要求：Windows 6.3 x64、PowerShell 4.0。</p><p class="big">现场人员只做三件事：解压、双击、允许管理员权限。</p>
+<body><h1>大同示意图 Windows 一键部署教程</h1><p class="hint">版本 2026.07.23.2；Windows 11 实机验证中、Server 2012 R2 兼容候选。最低要求：Windows 6.3 x64、PowerShell 4.0。</p><p class="big">现场人员只做三件事：解压、双击、允许管理员权限。</p>
 <section class="card step"><h2><span class="num">1</span>解压</h2><p>把完整离线 ZIP 解压到 <code>C:\DatongMap</code>。确认能看到：</p><pre>C:\DatongMap\开始部署.cmd
+C:\DatongMap\完整重装.cmd
 C:\DatongMap\app
 C:\DatongMap\runtime
 C:\DatongMap\scripts</pre></section>
 <section class="card step"><h2><span class="num">2</span>双击</h2><p>双击 <code>开始部署.cmd</code>。Windows 询问是否允许修改设备时点击<strong>“是”</strong>。</p><p class="hint">保持黑色窗口打开。五个阶段会自动执行，不需要填写 MySQL 账号或密码。</p></section>
 <section class="card step"><h2><span class="num">3</span>等待五个阶段</h2><ol><li>服务器和离线组件检查</li><li>目录、配置和 HTTPS 证书</li><li>项目独立 MySQL</li><li>MinIO、后端服务、防火墙和备份</li><li>服务、健康接口和首页验收</li></ol><p>已有 MySQL 保持原状；项目 MySQL 自动选择 3306 或 3311。</p></section>
 <section class="card pass"><h2>绿色 PASS：部署成功</h2><p>服务端本机证书信任已自动完成，直接访问 <code>https://datong-hub-offline:8012</code>。其他电脑复制 <code>client</code> 目录和 <code>客户端证书安装.cmd</code>，双击后输入服务器局域网 IPv4 地址，仍使用同一个固定地址。</p></section>
+<section class="card stop"><h2>已有项目要完整重装</h2><ol><li>把最新版 ZIP 重新解压到 <code>C:\DatongMap</code>，同名文件选择全部替换。</li><li>双击 <code>完整重装.cmd</code>。</li><li>管理员权限选择“是”，等待清理和五阶段安装完成。</li><li>看到绿色 PASS 才结束。</li></ol><p><strong>完整重装会删除本项目服务、MySQL/MinIO 数据、配置、证书、hosts 标记块、计划任务、防火墙规则、旧客户端证书和旧报告；旧地图、图片、账号和数据库不再保留。</strong></p><p>服务器原有 MySQL、Docker、Java 和其他业务服务保持原状，项目目录之外的备份副本保持原状。</p></section>
 <section class="card stop"><h2>红色 STOP：把材料发给技术人员</h2><p>结果页会显示失败阶段、失败组件、错误编号和原因。点击“复制反馈信息”，再发送页面列出的 <code>DatongMap-Diagnostics-时间.zip</code>。</p><p><strong>现场人员此时不要删除目录、数据库或重新改端口。</strong></p></section>
 <section class="card"><h2>常用材料位置</h2><ul><li><code>C:\DatongMap\reports\deployment-status.html</code></li><li><code>C:\DatongMap\reports\deployment.log</code></li><li><code>C:\DatongMap\DatongMap-Diagnostics-时间.zip</code></li></ul><p>诊断材料会自动过滤密码和密钥。</p></section>
 </body></html>

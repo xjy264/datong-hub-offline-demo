@@ -3,7 +3,7 @@ param(
     [ValidateSet('Slim','Offline')][string]$Mode = 'Slim',
     [string]$RuntimeCache = (Join-Path ([IO.Path]::GetTempPath()) 'datong-windows-runtime'),
     [string]$RuntimeSeedPackage = '',
-    [string]$PackageVersion = '2026.07.23.1',
+    [string]$PackageVersion = '2026.07.23.2',
     [string]$CompatibilityStatus = 'Windows 11 实机验证中、Server 2012 R2 兼容候选',
     [switch]$SkipBuild
 )
@@ -120,7 +120,7 @@ Remove-Tree $stageRoot
 New-Item -ItemType Directory -Force -Path (Join-Path $stageRoot 'app') | Out-Null
 Copy-Item $jar (Join-Path $stageRoot 'app/datong-map-server.jar')
 foreach ($folder in @('scripts','service','config')) { Copy-Item (Join-Path $windowsRoot $folder) (Join-Path $stageRoot $folder) -Recurse }
-foreach ($file in @('开始部署.cmd','开始环境检测.cmd','客户端证书安装.cmd','Windows部署操作手册.md','Windows部署操作手册.html','Windows一键部署教程.md','Windows一键部署教程.html','runtime-lock.json')) {
+foreach ($file in @('开始部署.cmd','完整重装.cmd','开始环境检测.cmd','客户端证书安装.cmd','Windows部署操作手册.md','Windows部署操作手册.html','Windows一键部署教程.md','Windows一键部署教程.html','runtime-lock.json')) {
     Copy-Item (Join-Path $windowsRoot $file) (Join-Path $stageRoot $file)
 }
 Get-ChildItem $stageRoot -Filter '*.cmd' | ForEach-Object { Assert-CmdCompatibility $_.FullName }
@@ -166,7 +166,7 @@ $manifest = [ordered]@{
     CompatibilityStatus = $CompatibilityStatus
     ApplicationJarSha256 = $jarHash
     Components = @($lock.Components | ForEach-Object { [ordered]@{ Name = $_.Name; Version = $_.Version; Target = $_.Target; Sha256 = $_.Sha256 } })
-    Features = @('50MB图片安全分批上传','Windows一键离线部署','分阶段故障反馈','自动脱敏诊断包','固定可信访问名')
+    Features = @('50MB图片安全分批上传','Windows一键离线部署','完整重装清理','分阶段故障反馈','自动脱敏诊断包','固定可信访问名')
 }
 $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stageRoot 'package-manifest.json') -Encoding UTF8
 @"
@@ -176,8 +176,9 @@ $manifest | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $stageRoot 'package
 构建时间：$($manifest.BuiltAt)
 兼容状态：$CompatibilityStatus
 最低环境：Windows 6.3、PowerShell 4.0、x64
-包含：7月21日50MB图片上传、一键部署、故障报告、自动诊断包、固定可信访问名
+包含：7月21日50MB图片上传、一键部署、完整重装清理、故障报告、自动诊断包、固定可信访问名
 部署入口：开始部署.cmd
+完整重装入口：完整重装.cmd
 "@ | Set-Content (Join-Path $stageRoot '版本信息.txt') -Encoding UTF8
 
 $zipName = if ($Mode -eq 'Offline') { 'datong-map-windows-offline.zip' } else { 'datong-map-windows-slim.zip' }

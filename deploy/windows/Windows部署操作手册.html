@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>大同示意图 Windows 部署操作手册</title>
 <style>body{font:16px/1.7 "Microsoft YaHei",Segoe UI,sans-serif;max-width:980px;margin:32px auto;padding:0 24px;color:#1f2937}h1,h2{color:#075985}section{border:1px solid #cbd5e1;border-radius:10px;padding:18px;margin:18px 0}.pass{border-left:8px solid #16a34a}.warn{border-left:8px solid #eab308}.stop{border-left:8px solid #dc2626}code,pre{background:#f1f5f9;padding:3px 6px;border-radius:5px}pre{padding:14px;overflow:auto}</style></head>
-<body><h1>大同示意图 Windows 部署操作手册</h1><p><strong>版本 2026.07.23.1；Windows 11 实机验证中、Server 2012 R2 兼容候选。</strong> 最低要求：Windows 6.3 x64、PowerShell 4.0。</p>
+<body><h1>大同示意图 Windows 部署操作手册</h1><p><strong>版本 2026.07.23.2；Windows 11 实机验证中、Server 2012 R2 兼容候选。</strong> 最低要求：Windows 6.3 x64、PowerShell 4.0。</p>
 <section><h2>1. 部署前准备</h2><p>使用完整离线包 <code>datong-map-windows-offline.zip</code>，解压到 <code>C:\DatongMap</code>。部署包会安装项目独立MySQL，服务器原有MySQL保持原状。服务器至少4GB内存、建议8GB以上，系统盘20GB以上可用空间。</p></section>
 <section><h2>2. 开始部署</h2><p>双击 <code>开始部署.cmd</code>，权限确认选择“是”。向导按01到05自动执行，无需输入数据库账号、密码或阶段确认。</p></section>
 <section class="pass"><h2>绿色PASS</h2><p>当前阶段通过，可以进入下一步。</p></section>
@@ -17,6 +17,7 @@ stop.ps1
 restart.ps1
 backup.ps1
 restore.ps1 -BackupPath "备份路径"</pre><p>自动保留7个日备份和4个周备份。</p></section>
-<section><h2>8. 卸载</h2><pre>uninstall.ps1
+<section class="stop"><h2>8. 完整重装</h2><p>先用最新版ZIP覆盖 <code>C:\DatongMap</code> 中的部署包文件，再双击 <code>完整重装.cmd</code>。该入口会先删除本项目服务、MySQL/MinIO数据、配置、项目证书、hosts标记块、计划任务、防火墙规则、旧客户端证书和旧报告，再执行五阶段全新安装。</p><p><strong>旧地图、图片、账号和数据库不再保留。</strong> 服务器原有MySQL、Docker、Java和其他业务服务保持原状；项目目录之外的备份副本保持原状。</p></section>
+<section><h2>9. 高级卸载</h2><pre>uninstall.ps1
 uninstall.ps1 -RemoveData -RemoveCertificates</pre><p>默认保留数据和复用的甲方MySQL服务。证书清理只使用本项目记录的Thumbprint，hosts只删除带DatongMap标记的配置块。</p></section>
 </body></html>
