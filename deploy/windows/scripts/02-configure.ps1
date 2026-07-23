@@ -40,6 +40,10 @@ if ($UseBundledMySql -and (Test-Path $settingsPath)) {
         if ($existingSettings.PSObject.Properties['CertificateThumbprint'] -and $existingSettings.CertificateThumbprint) {
             Set-Content (Join-Path $certDir 'certificate-thumbprint.txt') ([string]$existingSettings.CertificateThumbprint) -Encoding ASCII
         }
+        if ($existingSettings.PSObject.Properties['ClientCertificatePath'] -and (Test-Path $existingSettings.ClientCertificatePath)) {
+            Import-Certificate -FilePath $existingSettings.ClientCertificatePath -CertStoreLocation 'Cert:\LocalMachine\Root' | Out-Null
+        }
+        Set-DatongHostsEntry -Address '127.0.0.1' -HostName $accessHostName
         Save-DatongJson $settingsPath $existingSettings
         Set-DatongPrivateAcl $configDir
         Set-Content (Join-Path $configDir 'stage-02.complete') (Get-Date).ToString('o') -Encoding ASCII
