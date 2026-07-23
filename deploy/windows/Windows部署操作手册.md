@@ -1,6 +1,6 @@
 # 大同示意图 Windows 部署操作手册
 
-> 包版本：2026.07.22.1；兼容状态：Windows 11 实机通过、Server 2012 R2 兼容候选。
+> 包版本：2026.07.23.1；兼容状态：Windows 11 实机验证中、Server 2012 R2 兼容候选。
 
 ## 一、部署前准备
 
@@ -35,7 +35,7 @@ C:\DatongMap
 - `3306` 空闲时使用 `3306`；被其他程序占用时自动使用 `3311`。
 - 已有DatongMap安装会保留原项目数据库和端口，并在升级前自动备份。
 - 备份目录优先选择空间最大的非系统盘，没有其他磁盘时使用项目数据目录。
-- 向导自动生成包含服务器名称和局域网IP的HTTPS证书。
+- 向导自动生成包含固定名称 `datong-hub-offline`、服务器名称和局域网IP的HTTPS证书，并完成服务端本机信任。
 
 ### 阶段03：准备数据库
 
@@ -61,8 +61,8 @@ C:\DatongMap
 
 1. 把服务端 `C:\DatongMap\client` 目录和 `客户端证书安装.cmd` 复制到客户端。
 2. 双击 `客户端证书安装.cmd` 并允许管理员权限。
-3. 输入服务端电脑名和局域网IP。
-4. 浏览器自动打开 `https://服务器IP:8012`。
+3. 输入服务端局域网IPv4地址，脚本自动安装项目证书并配置固定名称。
+4. 浏览器自动打开 `https://datong-hub-offline:8012`。
 
 每台客户端只需执行一次证书安装。
 
@@ -110,12 +110,13 @@ C:\DatongMap\scripts\uninstall.ps1
 C:\DatongMap\scripts\uninstall.ps1 -RemoveData -RemoveCertificates
 ```
 
-`-RemoveCertificates` 只按部署配置中记录的 Thumbprint 清理本项目证书。执行彻底清理前先确认备份已复制到其他磁盘。
+`-RemoveCertificates` 只按部署配置中记录的 Thumbprint 清理本项目证书；卸载同时只删除带 DatongMap 标记的 hosts 配置块。执行彻底清理前先确认备份已复制到其他磁盘。
 
 ## 七、成功标志
 
 - 环境报告为PASS。
 - 部署验收报告为PASS。
 - Windows重启后项目服务自动运行。
+- Edge直接打开 `https://datong-hub-offline:8012`，不显示证书告警。
 - 局域网客户端可以注册、登录、查看地图、编辑站点和上传图片。
 - 手动备份生成MySQL SQL文件、MinIO目录和manifest文件。

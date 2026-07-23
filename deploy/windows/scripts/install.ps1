@@ -38,7 +38,7 @@ try {
     Invoke-DeploymentStage 3 '安装项目独立MySQL' '03-prepare-database.ps1' @{ DataRoot = $DataRoot }
     Invoke-DeploymentStage 4 '安装MinIO与后端服务' '04-install-services.ps1' @{ DataRoot = $DataRoot }
     Invoke-DeploymentStage 5 '服务与页面验收' '05-verify.ps1' @{ DataRoot = $DataRoot }
-    $success = New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'COMPLETE' -Status 'PASS' -StartedAt $startedAt -Message '全部五个阶段已完成。' -NextAction '给客户端复制client目录并运行客户端证书安装.cmd。' -Stages $completedStages
+    $success = New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'COMPLETE' -Status 'PASS' -StartedAt $startedAt -Message '全部五个阶段已完成。访问地址：https://datong-hub-offline:8012' -NextAction '本机可直接访问；其他电脑复制client目录并运行客户端证书安装.cmd。' -Stages $completedStages
     Write-DatongDeploymentProgress -PackageRoot $PackageRoot -State $success
     exit 0
 } catch {

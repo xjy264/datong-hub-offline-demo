@@ -6,6 +6,7 @@ Import-Module (Join-Path $PSScriptRoot 'DatongDeploy.psm1') -Force
 Write-DatongStage '阶段05：部署验收'
 $settings = Read-DatongJson (Join-Path $DataRoot 'config\deployment-settings.json')
 $packageRoot = $settings.PackageRoot
+$accessHostName = if ($settings.PSObject.Properties['AccessHostName']) { [string]$settings.AccessHostName } else { 'datong-hub-offline' }
 $startedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
 Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'SERVICES' -Status 'RUNNING' -StartedAt $startedAt)
 $services = @(@($settings.MySqlServiceName, 'DatongMapMinIO', 'DatongMapBackend') | ForEach-Object {
@@ -24,6 +25,12 @@ if ($health) {
     Write-DatongDeploymentProgress -PackageRoot $packageRoot -State (New-DatongDeploymentState -Stage 5 -StageName '服务与页面验收' -Component 'FRONTEND' -Status 'RUNNING' -StartedAt $startedAt)
     $homeResponse = Invoke-DatongHttpsRequest -Uri "https://127.0.0.1:$($settings.ServerPort)/" -TimeoutSec 10
 } else { $homeResponse = $null }
+$trustedResponse = $null
+$trustedError = ''
+if ($homeResponse) {
+    try { $trustedResponse = Invoke-WebRequest -UseBasicParsing -Uri "https://$accessHostName`:$($settings.ServerPort)/" -TimeoutSec 10 }
+    catch { $trustedError = $_.Exception.Message }
+}
 $ports = @(@(8012, 9011, 9012, [int]$settings.MySqlPort) | ForEach-Object {
     $owner = Get-DatongPortOwner $_
     if ($owner) { $owner } else { [pscustomobject]@{ Port = $_; Address = ''; ProcessId = 0; ProcessName = '未监听' } }
@@ -34,6 +41,7 @@ $stoppedServices = @($services | Where-Object { $_.State -ne 'Running' })
 if ($stoppedServices.Count -gt 0) { $problems += ('未运行的项目服务：' + (($stoppedServices | ForEach-Object { "$($_.Name)=$($_.State)" }) -join '，')); if (-not $failureComponent) { $failureComponent = 'SERVICES' } }
 if (-not $health -or $health.StatusCode -ne 200) { $problems += '后端健康检查未通过。'; if (-not $failureComponent) { $failureComponent = 'HEALTH' } }
 if (-not $homeResponse -or $homeResponse.Content -notmatch '<div id="app">') { $problems += '前端首页未正确返回。'; if (-not $failureComponent) { $failureComponent = 'FRONTEND' } }
+if (-not $trustedResponse -or $trustedResponse.StatusCode -ne 200) { $problems += "固定访问地址的名称解析或证书信任检查失败：$trustedError"; if (-not $failureComponent) { $failureComponent = 'CERTIFICATE' } }
 if (@($ports | Where-Object { $_.Port -in @(9011,9012) -and $_.Address -notin @('127.0.0.1','::1') }).Count -gt 0) {
     $problems += '内部端口存在非本机监听，请交给远程技术人员检查。'
     if (-not $failureComponent) { $failureComponent = 'PORTS' }
@@ -45,7 +53,7 @@ if (-not $settings.OwnsMySqlService) {
 }
 $report = [ordered]@{
     GeneratedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-    Url = "https://$($settings.ServerName):$($settings.ServerPort)"
+    Url = "https://$accessHostName`:$($settings.ServerPort)"
     Services = $services
     Ports = $ports
     HealthStatus = if ($health) { $health.StatusCode } else { 0 }

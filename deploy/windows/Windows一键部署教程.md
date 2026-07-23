@@ -2,7 +2,7 @@
 
 > 适用对象：第一次接触服务器部署的现场人员。部署过程中只需要解压、双击和确认一次管理员权限。
 >
-> 包版本：2026.07.22.1；兼容状态：Windows 11 实机通过、Server 2012 R2 兼容候选。
+> 包版本：2026.07.23.1；兼容状态：Windows 11 实机验证中、Server 2012 R2 兼容候选。
 
 ## 一、部署前准备
 
@@ -46,7 +46,7 @@ C:\DatongMap\scripts
 - `DatongMapMySQL`、`DatongMapMinIO`、`DatongMapBackend` 均为 Running；
 - 健康检查为 HTTP 200；
 - 前端首页为 HTTP 200；
-- 页面给出 `https://服务器IP:8012`。
+- 页面给出固定访问地址 `https://datong-hub-offline:8012`，服务端本机会自动信任证书。
 
 ### 红色 STOP
 
@@ -64,8 +64,8 @@ C:\DatongMap\scripts
 
 1. 从服务器复制 `C:\DatongMap\client` 文件夹和 `客户端证书安装.cmd` 到客户端电脑。
 2. 在客户端双击 `客户端证书安装.cmd`，管理员权限选择“是”。
-3. 按提示输入服务器电脑名和局域网 IP。
-4. 浏览器打开 `https://服务器IP:8012` 后即可注册、登录和使用。
+3. 按提示输入服务器局域网 IPv4 地址，脚本会自动安装项目证书和配置固定名称。
+4. 浏览器打开 `https://datong-hub-offline:8012` 后即可注册、登录和使用。
 
 每台客户端只需安装一次证书。
 
