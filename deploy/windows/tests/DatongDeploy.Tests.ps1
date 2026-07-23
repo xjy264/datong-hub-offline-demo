@@ -262,6 +262,8 @@ Assert-Contains "'*.err'" $diagnosticsContent 'diagnostics should include MySQL 
 $buildContent = Get-Content (Join-Path $PSScriptRoot '..\build-package.ps1') -Raw -Encoding UTF8
 Assert-Contains '[string]$PackageVersion' $buildContent 'package builder should accept an explicit patch version'
 Assert-Contains '[string]$CompatibilityStatus' $buildContent 'package builder should record validation status only after the matching real-machine run'
+Assert-Contains "[string]`$PackageVersion = '2026.07.23.1'" $buildContent 'package builder should default to the fixed-hostname package version'
+Assert-Contains '固定可信访问名' $buildContent 'package manifest should advertise the fixed trusted URL'
 foreach ($packageFile in @('Windows一键部署教程.md','Windows一键部署教程.html','package-manifest.json','版本信息.txt')) {
     Assert-Contains $packageFile $buildContent "offline package should include $packageFile"
 }
