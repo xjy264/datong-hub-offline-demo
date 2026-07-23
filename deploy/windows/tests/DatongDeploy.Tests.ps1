@@ -150,6 +150,19 @@ try {
     $zipArchive = [IO.Compression.ZipFile]::OpenRead($zipTarget)
     try { Assert-True ($null -ne ($zipArchive.Entries | Where-Object { $_.FullName -eq 'probe.txt' } | Select-Object -First 1)) 'ZIP helper should place source contents at the archive root' }
     finally { $zipArchive.Dispose() }
+
+    $hostsPath = Join-Path $reportRoot 'hosts'
+    Set-Content $hostsPath "127.0.0.1 localhost`r`n10.0.0.8 other-system" -Encoding ASCII
+    Set-DatongHostsEntry -HostsPath $hostsPath -Address '127.0.0.1' -HostName 'datong-hub-offline'
+    Set-DatongHostsEntry -HostsPath $hostsPath -Address '10.0.0.20' -HostName 'datong-hub-offline'
+    $hostsContent = Get-Content $hostsPath -Raw
+    Assert-Equal 1 @([regex]::Matches($hostsContent, '# DatongMap BEGIN')).Count 'hosts marker should be unique'
+    Assert-Contains '10.0.0.20 datong-hub-offline' $hostsContent 'hosts entry should be replaced'
+    Assert-Contains '10.0.0.8 other-system' $hostsContent 'unrelated hosts entries should remain'
+    Remove-DatongHostsEntry -HostsPath $hostsPath
+    $hostsContent = Get-Content $hostsPath -Raw
+    Assert-False ($hostsContent.Contains('datong-hub-offline')) 'uninstall should remove the project hosts block'
+    Assert-Contains '10.0.0.8 other-system' $hostsContent 'hosts cleanup should retain unrelated entries'
 } finally { Remove-Item $reportRoot -Recurse -Force -ErrorAction SilentlyContinue }
 
 $entryContent = Get-Content (Join-Path $PSScriptRoot '..\开始部署.cmd') -Raw -Encoding UTF8
@@ -202,6 +215,8 @@ $moduleContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\DatongDeploy.p
 Assert-Contains 'ICertificatePolicy' $moduleContent 'HTTPS helper should use a CLR certificate policy that does not require a PowerShell runspace'
 Assert-Contains '[Net.ServicePointManager]::CertificatePolicy = $oldCertificatePolicy' $moduleContent 'HTTPS helper should restore the previous certificate policy'
 Assert-Contains '[Net.ServicePointManager]::ServerCertificateValidationCallback = $oldCertificateCallback' $moduleContent 'HTTPS helper should restore the previous certificate callback'
+Assert-Contains 'function Set-DatongHostsEntry' $moduleContent 'shared module should own the marked hosts entry writer'
+Assert-Contains 'function Remove-DatongHostsEntry' $moduleContent 'shared module should own the marked hosts entry cleanup'
 
 $uninstallContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\uninstall.ps1') -Raw -Encoding UTF8
 Assert-Contains '[switch]$RemoveCertificates' $uninstallContent 'uninstaller should expose certificate cleanup explicitly'
@@ -211,11 +226,31 @@ Assert-Contains 'certificate-thumbprint.txt' $uninstallContent 'uninstaller shou
 Assert-Contains "PSObject.Properties['OwnsMySqlService']" $uninstallContent 'uninstaller should tolerate a partially written settings object'
 Assert-Contains 'cmd.exe /D /C' $uninstallContent 'uninstaller should isolate task deletion from PowerShell native stderr handling'
 Assert-Contains 'schtasks.exe /Delete /TN "DatongMap-DailyBackup" /F >nul 2>&1' $uninstallContent 'uninstaller should ignore a missing backup task without raising NativeCommandError'
+Assert-Contains 'Remove-DatongHostsEntry' $uninstallContent 'uninstaller should remove only the project hosts block'
 $configureContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\02-configure.ps1') -Raw -Encoding UTF8
 Assert-Contains 'CertificateThumbprint' $configureContent 'configuration should record the generated certificate thumbprint'
 Assert-Contains 'certificate-thumbprint.txt' $configureContent 'configuration should persist certificate ownership before later steps can fail'
 Assert-Contains 'certreq.exe' $configureContent 'certificate generation should use the Windows 2012 R2 built-in certreq tool'
 Assert-False ($configureContent.Contains('New-SelfSignedCertificate')) 'certificate generation should not depend on the newer PKI cmdlet parameter surface'
+Assert-Contains '$accessHostName = ''datong-hub-offline''' $configureContent 'configuration should use the fixed project hostname'
+Assert-Contains "dns=localhost" $configureContent 'certificate SAN should include localhost'
+Assert-Contains "ipaddress=127.0.0.1" $configureContent 'certificate SAN should include loopback IPv4'
+Assert-Contains "Cert:\LocalMachine\Root" $configureContent 'server installation should trust the generated project certificate'
+Assert-Contains 'Set-DatongHostsEntry' $configureContent 'server installation should resolve the fixed project hostname locally'
+$clientCertificateContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\install-client-certificate.ps1') -Raw -Encoding UTF8
+Assert-Contains "AccessHostName = 'datong-hub-offline'" $clientCertificateContent 'client installer should use the fixed project hostname'
+Assert-Contains '[Net.IPAddress]::TryParse' $clientCertificateContent 'client installer should validate the server IP'
+Assert-Contains 'Set-DatongHostsEntry' $clientCertificateContent 'client installer should map the fixed hostname to the server IP'
+Assert-Contains 'https://$AccessHostName' $clientCertificateContent 'client installer should open the fixed project URL'
+Assert-Contains 'AccessHostName' $verifyContent 'deployment report should show the fixed project URL'
+$tutorialContent = @(
+    Get-Content (Join-Path $PSScriptRoot '..\Windows一键部署教程.md') -Raw -Encoding UTF8
+    Get-Content (Join-Path $PSScriptRoot '..\Windows一键部署教程.html') -Raw -Encoding UTF8
+    Get-Content (Join-Path $PSScriptRoot '..\Windows部署操作手册.md') -Raw -Encoding UTF8
+    Get-Content (Join-Path $PSScriptRoot '..\Windows部署操作手册.html') -Raw -Encoding UTF8
+) -join "`n"
+Assert-Contains 'https://datong-hub-offline:8012' $tutorialContent 'field documentation should publish the fixed project URL'
+Assert-False ($tutorialContent.Contains('https://服务器IP:8012')) 'field documentation should not publish the server IP as the final URL'
 $diagnosticsContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\collect-diagnostics.ps1') -Raw -Encoding UTF8
 Assert-Contains 'schtasks.exe /Query' $diagnosticsContent 'diagnostics should capture the project backup task'
 Assert-Contains '计划任务尚未创建' $diagnosticsContent 'diagnostics should tolerate the backup task not existing yet'
