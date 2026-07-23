@@ -237,6 +237,8 @@ Assert-Contains "dns=localhost" $configureContent 'certificate SAN should includ
 Assert-Contains "ipaddress=127.0.0.1" $configureContent 'certificate SAN should include loopback IPv4'
 Assert-Contains "Cert:\LocalMachine\Root" $configureContent 'server installation should trust the generated project certificate'
 Assert-Contains 'Set-DatongHostsEntry' $configureContent 'server installation should resolve the fixed project hostname locally'
+Assert-Contains 'Import-Certificate -FilePath $existingSettings.ClientCertificatePath' $configureContent 'idempotent upgrades should restore local certificate trust'
+Assert-Contains "Set-DatongHostsEntry -Address '127.0.0.1' -HostName `$accessHostName" $configureContent 'idempotent upgrades should restore local hostname resolution'
 $clientCertificateContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\install-client-certificate.ps1') -Raw -Encoding UTF8
 Assert-Contains "AccessHostName = 'datong-hub-offline'" $clientCertificateContent 'client installer should use the fixed project hostname'
 Assert-Contains '[Net.IPAddress]::TryParse' $clientCertificateContent 'client installer should validate the server IP'
