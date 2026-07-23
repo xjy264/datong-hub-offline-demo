@@ -2,7 +2,8 @@
 param(
     [string]$DataRoot = 'C:\ProgramData\DatongMap',
     [switch]$RemoveData,
-    [switch]$RemoveCertificates
+    [switch]$RemoveCertificates,
+    [switch]$RemoveBackups
 )
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'DatongDeploy.psm1') -Force
@@ -40,6 +41,22 @@ if ($RemoveCertificates) {
         foreach ($store in @('Cert:\LocalMachine\My','Cert:\LocalMachine\Root')) {
             Get-ChildItem $store -ErrorAction SilentlyContinue | Where-Object { $_.Thumbprint -eq $thumbprint } | Remove-Item -Force -ErrorAction SilentlyContinue
         }
+    }
+}
+if ($RemoveBackups) {
+    $backupRoots = New-Object 'System.Collections.Generic.List[string]'
+    if ($settings -and $settings.PSObject.Properties['BackupRoot']) { $backupRoots.Add([string]$settings.BackupRoot) }
+    $backupRoots.Add((Join-Path $DataRoot 'backups'))
+    foreach ($drive in @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction SilentlyContinue)) {
+        $backupRoots.Add((Join-Path ($drive.DeviceID + '\') 'DatongMapBackups'))
+    }
+    foreach ($backupRoot in @($backupRoots | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)) {
+        $fullBackupRoot = [IO.Path]::GetFullPath($backupRoot).TrimEnd('\')
+        $fullDataRoot = [IO.Path]::GetFullPath($DataRoot).TrimEnd('\')
+        $isManagedBackupRoot = ([IO.Path]::GetFileName($fullBackupRoot) -eq 'DatongMapBackups') -or
+            $fullBackupRoot.StartsWith($fullDataRoot + '\', [StringComparison]::OrdinalIgnoreCase)
+        if (-not $isManagedBackupRoot) { throw "拒绝删除不符合项目目录规则的备份路径：$fullBackupRoot" }
+        if (Test-Path $fullBackupRoot) { Remove-Item $fullBackupRoot -Recurse -Force }
     }
 }
 if ($RemoveData -and (Test-Path $DataRoot)) { Remove-Item $DataRoot -Recurse -Force }

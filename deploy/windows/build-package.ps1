@@ -3,7 +3,7 @@ param(
     [ValidateSet('Slim','Offline')][string]$Mode = 'Slim',
     [string]$RuntimeCache = (Join-Path ([IO.Path]::GetTempPath()) 'datong-windows-runtime'),
     [string]$RuntimeSeedPackage = '',
-    [string]$PackageVersion = '2026.07.23.2',
+    [string]$PackageVersion = '2026.07.23.3',
     [string]$CompatibilityStatus = 'Windows 11 实机验证中、Server 2012 R2 兼容候选',
     [switch]$SkipBuild
 )

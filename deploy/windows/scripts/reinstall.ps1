@@ -25,7 +25,14 @@ try {
     $thumbprintPath = Join-Path $DataRoot 'certificate\certificate-thumbprint.txt'
     $thumbprint = if (Test-Path $thumbprintPath) { [string](Get-Content $thumbprintPath -Raw -Encoding ASCII) } else { '' }
     $thumbprint = $thumbprint.Replace(' ', '').Trim().ToUpperInvariant()
-    & (Join-Path $PSScriptRoot 'uninstall.ps1') -DataRoot $DataRoot -RemoveData -RemoveCertificates
+    $settingsPath = Join-Path $DataRoot 'config\deployment-settings.json'
+    $settings = $null
+    if (Test-Path $settingsPath) {
+        try { $settings = Read-DatongJson $settingsPath }
+        catch { Write-Warning '部署配置不完整，将继续清理固定名称的项目资源。' }
+    }
+    $backupRoot = if ($settings -and $settings.PSObject.Properties['BackupRoot']) { [string]$settings.BackupRoot } else { '' }
+    & (Join-Path $PSScriptRoot 'uninstall.ps1') -DataRoot $DataRoot -RemoveData -RemoveCertificates -RemoveBackups
 
     $serviceNames = @('DatongMapMySQL','DatongMapMinIO','DatongMapBackend')
     $deadline = (Get-Date).AddSeconds(30)
@@ -36,6 +43,7 @@ try {
     } while ((Get-Date) -lt $deadline)
     if ($remainingServices.Count -gt 0) { throw ('项目服务未清理完成：' + ($remainingServices -join '、')) }
     if (Test-Path $DataRoot) { throw "项目数据目录未清理完成：$DataRoot" }
+    if ($backupRoot -and (Test-Path $backupRoot)) { throw "项目历史备份未清理完成：$backupRoot" }
     if (Get-NetFirewallRule -DisplayName 'DatongMap-HTTPS-8012' -ErrorAction SilentlyContinue) { throw '项目防火墙规则未清理完成。' }
     & cmd.exe /D /C 'schtasks.exe /Query /TN "DatongMap-DailyBackup" >nul 2>&1' | Out-Null
     if ($LASTEXITCODE -eq 0) { throw '项目备份计划任务未清理完成。' }

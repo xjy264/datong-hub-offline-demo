@@ -174,6 +174,7 @@ $reinstallContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\reinstall.p
 Assert-Contains 'uninstall.ps1' $reinstallContent 'full reinstall should use the shared uninstaller'
 Assert-Contains '-RemoveData' $reinstallContent 'full reinstall should delete project-owned data'
 Assert-Contains '-RemoveCertificates' $reinstallContent 'full reinstall should delete project certificates'
+Assert-Contains '-RemoveBackups' $reinstallContent 'full reinstall should delete project-managed backup copies'
 Assert-Contains 'install.ps1' $reinstallContent 'full reinstall should continue with a fresh unified installation'
 Assert-Contains "@('DatongMapMySQL','DatongMapMinIO','DatongMapBackend')" $reinstallContent 'full reinstall should verify all project services were removed before installing again'
 $installerContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\install.ps1') -Raw -Encoding UTF8
@@ -228,6 +229,9 @@ Assert-Contains 'function Remove-DatongHostsEntry' $moduleContent 'shared module
 
 $uninstallContent = Get-Content (Join-Path $PSScriptRoot '..\scripts\uninstall.ps1') -Raw -Encoding UTF8
 Assert-Contains '[switch]$RemoveCertificates' $uninstallContent 'uninstaller should expose certificate cleanup explicitly'
+Assert-Contains '[switch]$RemoveBackups' $uninstallContent 'uninstaller should expose project backup cleanup explicitly'
+Assert-Contains '$settings.BackupRoot' $uninstallContent 'backup cleanup should use the exact project-managed backup directory from deployment settings'
+Assert-Contains "Join-Path (`$drive.DeviceID + '\') 'DatongMapBackups'" $uninstallContent 'backup cleanup should cover fixed-drive backups when settings are incomplete'
 Assert-Contains 'if (Test-Path $settingsPath)' $uninstallContent 'uninstaller should tolerate configuration not having been generated'
 Assert-Contains 'CertificateThumbprint' $uninstallContent 'uninstaller should scope certificate cleanup by recorded thumbprint'
 Assert-Contains 'certificate-thumbprint.txt' $uninstallContent 'uninstaller should clean a certificate from a half-finished configuration stage'
@@ -272,7 +276,7 @@ Assert-Contains "'*.err'" $diagnosticsContent 'diagnostics should include MySQL 
 $buildContent = Get-Content (Join-Path $PSScriptRoot '..\build-package.ps1') -Raw -Encoding UTF8
 Assert-Contains '[string]$PackageVersion' $buildContent 'package builder should accept an explicit patch version'
 Assert-Contains '[string]$CompatibilityStatus' $buildContent 'package builder should record validation status only after the matching real-machine run'
-Assert-Contains "[string]`$PackageVersion = '2026.07.23.2'" $buildContent 'package builder should default to the full-reinstall package version'
+Assert-Contains "[string]`$PackageVersion = '2026.07.23.3'" $buildContent 'package builder should default to the full-reinstall package version'
 Assert-Contains '固定可信访问名' $buildContent 'package manifest should advertise the fixed trusted URL'
 foreach ($packageFile in @('完整重装.cmd','Windows一键部署教程.md','Windows一键部署教程.html','package-manifest.json','版本信息.txt')) {
     Assert-Contains $packageFile $buildContent "offline package should include $packageFile"
