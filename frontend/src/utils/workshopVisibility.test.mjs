@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   WORKSHOP_STRIP_STORAGE_KEY,
   readWorkshopStripCollapsed,
@@ -49,4 +50,19 @@ test('workshop strip ignores unavailable browser storage', () => {
   }
   assert.equal(readWorkshopStripCollapsed(unavailableStorage), false)
   assert.doesNotThrow(() => writeWorkshopStripCollapsed(true, unavailableStorage))
+})
+
+test('map view exposes the persisted workshop toggle and grouped toolbar', () => {
+  const view = readFileSync(new URL('../views/MapView.vue', import.meta.url), 'utf8')
+  const styles = readFileSync(new URL('../styles/main.css', import.meta.url), 'utf8')
+
+  assert.match(view, /v-show="!workshopStripCollapsed" class="workshop-strip"/)
+  assert.match(view, /class="workshop-strip-toggle"/)
+  assert.match(view, /class="tool-row map-filter-controls"/)
+  assert.match(view, /class="tool-row map-action-controls"/)
+  assert.match(styles, /grid-template-columns:\s*minmax\(0, 1fr\) auto/)
+  assert.match(styles, /\.map-filter-controls \.search-field\s*\{[^}]*flex:\s*0 0 260px/)
+  assert.match(styles, /\.map-filter-controls \.select-field\s*\{[^}]*flex:\s*0 0 180px/)
+  assert.match(styles, /\.map-filter-controls \.el-radio-group\s*\{[^}]*flex:\s*0 0 auto[^}]*flex-wrap:\s*nowrap/)
+  assert.match(styles, /@media \(max-width: 1180px\)/)
 })
