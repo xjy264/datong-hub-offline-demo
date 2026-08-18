@@ -12,9 +12,21 @@
         <div class="inline-meta">
           <span class="badge">{{ filteredMarkers.length }}/{{ currentMap?.markers.length || 0 }} 个组件</span>
           <span class="badge">{{ totalImages }} 张图片</span>
+          <el-tooltip :content="workshopStripCollapsed ? '显示车间卡片' : '隐藏车间卡片'" placement="bottom">
+            <el-button
+              class="workshop-strip-toggle"
+              text
+              circle
+              size="small"
+              :icon="workshopStripCollapsed ? ArrowDown : ArrowUp"
+              :aria-label="workshopStripCollapsed ? '显示车间卡片' : '隐藏车间卡片'"
+              :aria-expanded="!workshopStripCollapsed"
+              @click="toggleWorkshopStrip"
+            />
+          </el-tooltip>
         </div>
       </div>
-      <div class="workshop-strip">
+      <div v-show="!workshopStripCollapsed" class="workshop-strip">
         <button v-for="workshop in workshops" :key="workshop.id" class="workshop-card" :style="{ '--workshop-color': workshop.color }" @click="router.push(workshopPath(workshop))">
           <strong>{{ workshop.name }}</strong>
           <span>{{ workshopStats(workshop.id).total }} 站 · {{ workshopStats(workshop.id).markers }} 组件</span>
@@ -31,7 +43,7 @@
 
     <section class="panel map-panel">
       <div class="map-toolbar">
-        <div class="tool-row">
+        <div class="tool-row map-filter-controls">
           <el-autocomplete
             v-model="query"
             class="search-field"
@@ -56,7 +68,7 @@
             <el-radio-button label="blue">已撤站</el-radio-button>
           </el-radio-group>
         </div>
-        <div class="tool-row">
+        <div class="tool-row map-action-controls">
           <el-button @click="zoomAt(1 / 1.18)">缩小</el-button>
           <el-button @click="zoomAt(1.18)">放大</el-button>
           <el-button @click="openOriginalPdf">查看原始 PDF</el-button>
@@ -323,6 +335,7 @@
 </template>
 
 <script setup lang="ts">
+import { ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -340,6 +353,7 @@ import { findStationByName } from '../utils/stationMatch'
 import { countStationImages } from '../utils/stationImages'
 import { stationDetailPath } from '../utils/stationRoute'
 import { workshopName as resolveWorkshopName, workshopPath } from '../utils/workshopRoute'
+import { readWorkshopStripCollapsed, writeWorkshopStripCollapsed } from '../utils/workshopVisibility'
 
 type DraftMarker = { x: number; y: number; size: number }
 type IntervalForm = { markerAId: string | null; markerBId: string | null; baseStations: string[]; x: number; y: number; length: number; angle: number }
@@ -353,6 +367,7 @@ const viewport = ref<HTMLElement | null>(null)
 const query = ref('')
 const workshopFilter = ref<number | 'all'>('all')
 const colorFilter = ref('all')
+const workshopStripCollapsed = ref(readWorkshopStripCollapsed())
 const editMode = ref(false)
 const selectedMarkerId = ref('')
 const selectedMarkerStationId = ref('')
@@ -448,6 +463,11 @@ watch(draftExistingStation, (station) => {
 
 function workshopName(id: number | string | null | undefined) {
   return resolveWorkshopName(workshops.value, id)
+}
+
+function toggleWorkshopStrip() {
+  workshopStripCollapsed.value = !workshopStripCollapsed.value
+  writeWorkshopStripCollapsed(workshopStripCollapsed.value)
 }
 
 function fetchMarkerSuggestions(text: string, cb: (items: SearchSuggestion[]) => void) {
